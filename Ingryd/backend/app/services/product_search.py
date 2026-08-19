@@ -39,8 +39,6 @@ async def search_products(query: str, profile: SkinProfile | None = None, page_s
     # NOTE: search_simple=1 uses OBF's fast tokenized-word matcher, which only matches
     # whole words (e.g. "innis" won't match "innisfree"). Dropping search_simple lets
     # OBF fall back to its fuller-text matching, which handles partial words better.
-    # This is based on OBF's documented search.pl behavior — verify on live deploy,
-    # since this sandbox can't reach world.openbeautyfacts.org to test directly.
     params = {
         "search_terms": query,
         "action": "process",
@@ -72,19 +70,21 @@ async def search_products(query: str, profile: SkinProfile | None = None, page_s
 
 
 async def browse_products(
-    category: str = "skin-care-products",
+    category: str | None = None,
     profile: SkinProfile | None = None,
     page_size: int = 30,
 ) -> ProductSearchResponse:
-    """Alphabetically-sorted product list for the Search page's default/empty-query view."""
+    """Alphabetically-sorted product list for the Search page's default/empty-query view.
+
+    No category filter: Open Beauty Facts only contains cosmetics/skincare products
+    in the first place, so sorting the whole database by name works without needing
+    to guess at any category taxonomy tag.
+    """
     params = {
         "action": "process",
         "json": 1,
         "sort_by": "product_name",
         "page_size": page_size,
-        "tagtype_0": "categories",
-        "tag_contains_0": "contains",
-        "tag_0": category,
         "fields": RESULT_FIELDS,
     }
     async with httpx.AsyncClient(timeout=10.0) as client:
