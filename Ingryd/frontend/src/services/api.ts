@@ -7,7 +7,7 @@ import type {
 } from '../types'
 import { getProfile, profileToQueryParams } from './profile'
 
-const BASE = import.meta.env.VITE_API_BASE_URL || '/api'
+const BASE = (import.meta as any).env?.VITE_API_BASE_URL || '/api'
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
