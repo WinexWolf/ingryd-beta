@@ -10,19 +10,19 @@ const features = [
   {
     num: '01', icon: '▣',
     title: 'Scan a Product',
-    description: "Scan any barcode and instantly see what's good, bad, or harmful in the ingredient list.",
+    description: "Point, shoot, know. Scan any barcode and see what's actually in the bottle before it's on your face.",
     to: '/scan', active: true,
   },
   {
     num: '02', icon: '◈',
     title: 'Skin Analysis',
-    description: 'Photograph your skin for a breakdown of hydration, oiliness, redness, and texture — tracked over time.',
+    description: 'Snap a photo, get the real talk on hydration, oiliness, redness, and texture — tracked over time.',
     to: '/skin-analysis', active: true,
   },
   {
     num: '03', icon: '◎',
     title: 'Search Products',
-    description: 'Browse thousands of beauty products and filter by ingredient safety score.',
+    description: 'Browse the database and find the ones your skin will actually thank you for.',
     to: '/search', active: true,
   },
   {
@@ -68,30 +68,30 @@ export function Home() {
       {/* ── Hero ─────────────────────────────────────────────── */}
       <section className="pt-8 pb-4">
         <p className="text-[10px] tracking-[0.4em] uppercase mb-6 font-sans" style={{ color: 'var(--muted)' }}>
-          Skincare intelligence platform
+          Skincare, decoded
         </p>
 
         {/* Accent bar using secondary color */}
         <div className="flex items-center gap-4 mb-6">
           <div className="h-px flex-1" style={{ backgroundColor: 'var(--secondary)', opacity: 0.4 }} />
           <span className="text-[10px] tracking-widest uppercase font-semibold" style={{ color: 'var(--secondary)' }}>
-            ingredient intel
+            no fluff, just facts
           </span>
           <div className="h-px w-8" style={{ backgroundColor: 'var(--secondary)', opacity: 0.4 }} />
         </div>
 
         <h1 className="font-display text-7xl sm:text-8xl lg:text-9xl leading-[0.92] mb-8" style={{ color: 'var(--fg)' }}>
-          Know what's
+          Stop guessing.
           <br />
-          <span className="shimmer-text">on your skin.</span>
+          <span className="shimmer-text">Start glowing.</span>
         </h1>
         <p className="text-lg max-w-lg leading-relaxed mb-10 font-sans" style={{ color: 'var(--muted)' }}>
-          Ingryd decodes the fine print on your skincare and beauty products, and tracks your skin health over time —
-          so you always know exactly what you're applying and how it's working.
+          Ingryd reads the ingredient list so you don't have to — real scores, plain-English breakdowns,
+          and a skin tracker that actually remembers what worked.
         </p>
 
         <div className="flex flex-wrap gap-3">
-          <Link to="/scan" className="btn-primary">Scan a Product</Link>
+          <Link to="/scan" className="btn-primary">Let's Glow</Link>
           <Link to="/skin-analysis" className="btn-outline">Check My Skin</Link>
         </div>
 

@@ -29,7 +29,12 @@ export function IngredientBadge({ ingredient, showConcern = false }: Props) {
   if (ingredient.severity === 'moderate') {
     return (
       <div className="flex flex-col gap-1">
-        <span className="badge-moderate">◐ {ingredient.name}</span>
+        <span className="badge-moderate">
+          ◐ {ingredient.name}
+          {ingredient.category && (
+            <span className="text-amber-700/50 font-normal normal-case tracking-normal"> · {ingredient.category}</span>
+          )}
+        </span>
         {showConcern && (
           <span className="text-[11px] text-amber-700/80 pl-1">{ingredient.concern}</span>
         )}

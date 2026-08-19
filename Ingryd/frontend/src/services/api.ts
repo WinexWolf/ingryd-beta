@@ -29,6 +29,12 @@ export async function searchProducts(query: string): Promise<ProductSearchRespon
   return handle<ProductSearchResponse>(res)
 }
 
+export async function browseProducts(): Promise<ProductSearchResponse> {
+  const profileQs = profileToQueryParams(getProfile())
+  const res = await fetch(`${BASE}/products/browse?${profileQs.replace(/^&/, '')}`)
+  return handle<ProductSearchResponse>(res)
+}
+
 export async function analyzeSkin(imageBase64: string): Promise<SkinProfile> {
   const res = await fetch(`${BASE}/skin/analyze`, {
     method: 'POST',

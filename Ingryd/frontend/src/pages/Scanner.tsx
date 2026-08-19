@@ -53,7 +53,7 @@ export function Scanner() {
             <p className="text-[10px] tracking-widest uppercase mb-4" style={{ color: 'var(--muted)' }}>
               Or enter barcode manually
             </p>
-            <form onSubmit={handleManualSubmit} className="flex gap-0">
+            <form onSubmit={handleManualSubmit} className="flex gap-3">
               <input
                 type="text"
                 value={manualBarcode}
@@ -62,7 +62,7 @@ export function Scanner() {
                 className="input flex-1"
                 inputMode="numeric"
               />
-              <button type="submit" disabled={!manualBarcode.trim()} className="btn-primary border-l-0">
+              <button type="submit" disabled={!manualBarcode.trim()} className="btn-primary">
                 Look up
               </button>
             </form>

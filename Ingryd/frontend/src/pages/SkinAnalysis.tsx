@@ -1,10 +1,11 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
+import { Camera, Upload } from 'lucide-react'
 import { analyzeSkin } from '../services/api'
 import { addSkinAnalysisToHistory, getSkinHistory } from '../services/history'
 import type { SkinProfile } from '../types'
 import type { SkinHistoryEntry } from '../services/history'
 
-type PageState = 'idle' | 'preview' | 'loading' | 'result' | 'error'
+type PageState = 'idle' | 'camera' | 'preview' | 'loading' | 'result' | 'error'
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -35,18 +36,58 @@ export function SkinAnalysis() {
   const [imageData, setImageData] = useState<string | null>(null)
   const [profile, setProfile] = useState<SkinProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [cameraError, setCameraError] = useState<string | null>(null)
   const [history, setHistory] = useState<SkinHistoryEntry[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
   useEffect(() => {
     setHistory(getSkinHistory())
   }, [])
+
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+  }, [])
+
+  useEffect(() => stopCamera, [stopCamera])
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     const base64 = await fileToBase64(file)
     setImageData(base64)
+    setPageState('preview')
+  }
+
+  const openCamera = async () => {
+    setCameraError(null)
+    setPageState('camera')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+      }
+    } catch {
+      setCameraError('Could not access your camera. Check browser permissions, or upload a photo instead.')
+    }
+  }
+
+  const capturePhoto = () => {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas) return
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    setImageData(canvas.toDataURL('image/jpeg', 0.92))
+    stopCamera()
     setPageState('preview')
   }
 
@@ -67,9 +108,11 @@ export function SkinAnalysis() {
   }
 
   const reset = () => {
+    stopCamera()
     setImageData(null)
     setProfile(null)
     setError(null)
+    setCameraError(null)
     setPageState('idle')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
@@ -85,24 +128,46 @@ export function SkinAnalysis() {
         </p>
       </div>
 
-      {(pageState === 'idle') && (
+      {pageState === 'idle' && (
         <div className="p-10 flex flex-col items-center gap-6 text-center" style={{ border: '1px solid var(--rim)' }}>
           <p className="text-sm max-w-sm" style={{ color: 'var(--muted)' }}>
             Take a clear, well-lit, makeup-free photo of your face — or upload one from your camera roll.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <button onClick={() => fileInputRef.current?.click()} className="btn-primary">
-              Take / Upload Photo
+            <button onClick={openCamera} className="btn-primary flex items-center gap-2">
+              <Camera size={16} /> Use Camera
+            </button>
+            <button onClick={() => fileInputRef.current?.click()} className="btn-outline flex items-center gap-2">
+              <Upload size={16} /> Upload Photo
             </button>
           </div>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture="user"
             onChange={handleFile}
             className="hidden"
           />
+        </div>
+      )}
+
+      {pageState === 'camera' && (
+        <div className="flex flex-col gap-6">
+          <div className="flex justify-center" style={{ border: '1px solid var(--rim)', backgroundColor: '#000' }}>
+            <video ref={videoRef} playsInline muted className="max-h-96 w-full object-contain" />
+          </div>
+          <canvas ref={canvasRef} className="hidden" />
+          {cameraError ? (
+            <div className="p-6 text-center" style={{ border: '1px solid rgba(185,28,28,0.4)' }}>
+              <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>{cameraError}</p>
+              <button onClick={() => fileInputRef.current?.click()} className="btn-outline">Upload Photo Instead</button>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <button onClick={capturePhoto} className="btn-primary flex-1">Capture</button>
+              <button onClick={reset} className="btn-outline">Cancel</button>
+            </div>
+          )}
         </div>
       )}
 

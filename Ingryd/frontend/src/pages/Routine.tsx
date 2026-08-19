@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Sun, Moon } from 'lucide-react'
 import { fetchProductByBarcode, searchProducts, checkRoutine } from '../services/api'
 import { getRoutine, saveRoutine } from '../services/history'
 import type { RoutineProductInput, RoutineCheckResponse } from '../types'
@@ -104,8 +105,9 @@ export function Routine() {
             <button
               key={slot}
               onClick={() => setAddSlot(slot)}
-              className={`text-xs tracking-widest uppercase px-4 py-2 border ${addSlot === slot ? 'btn-primary' : 'btn-ghost'}`}
+              className={`flex items-center gap-1.5 text-xs tracking-widest uppercase px-4 py-2 border ${addSlot === slot ? 'btn-primary' : 'btn-ghost'}`}
             >
+              {slot === 'am' ? <Sun size={14} /> : <Moon size={14} />}
               {slot === 'am' ? 'Morning' : 'Evening'}
             </button>
           ))}
@@ -120,7 +122,7 @@ export function Routine() {
             </button>
           ))}
         </div>
-        <form onSubmit={addProduct} className="flex gap-0">
+        <form onSubmit={addProduct} className="flex gap-3">
           <input
             type="text"
             value={inputValue}
@@ -128,7 +130,7 @@ export function Routine() {
             placeholder={addMode === 'barcode' ? 'e.g. 3606000537750' : 'e.g. CeraVe Foaming Cleanser'}
             className="input flex-1"
           />
-          <button type="submit" disabled={!inputValue.trim() || busy} className="btn-primary border-l-0">
+          <button type="submit" disabled={!inputValue.trim() || busy} className="btn-primary">
             {busy ? 'Adding…' : 'Add'}
           </button>
         </form>
@@ -138,8 +140,8 @@ export function Routine() {
       {/* AM / PM lists */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div className="flex flex-col gap-3">
-          <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--secondary)' }}>
-            Morning · {amProducts.length}
+          <p className="flex items-center gap-2 text-[10px] tracking-widest uppercase" style={{ color: 'var(--secondary)' }}>
+            <Sun size={14} /> Morning · {amProducts.length}
           </p>
           {amProducts.length === 0 && (
             <p className="text-xs" style={{ color: 'var(--muted)' }}>No products added yet.</p>
@@ -149,8 +151,8 @@ export function Routine() {
           ))}
         </div>
         <div className="flex flex-col gap-3">
-          <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--secondary)' }}>
-            Evening · {pmProducts.length}
+          <p className="flex items-center gap-2 text-[10px] tracking-widest uppercase" style={{ color: 'var(--secondary)' }}>
+            <Moon size={14} /> Evening · {pmProducts.length}
           </p>
           {pmProducts.length === 0 && (
             <p className="text-xs" style={{ color: 'var(--muted)' }}>No products added yet.</p>

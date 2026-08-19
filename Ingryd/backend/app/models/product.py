@@ -27,6 +27,7 @@ class ProductScore(BaseModel):
     high_concern: list[IngredientFlag]
     moderate_concern: list[IngredientFlag]
     beneficial: list[IngredientFlag]
+    comedogenic: list[IngredientFlag] = []  # informational — does not affect score
     total_ingredients: int
     flagged_count: int
     fit_score: Optional[int] = None       # personalized score, only present if a profile was supplied

@@ -80,6 +80,17 @@ export function ScanResult({ product, onReset }: Props) {
         )}
       </div>
 
+      {/* No ingredient data available — OBF has the product but not its ingredients */}
+      {!score && (
+        <div className="p-8 text-center" style={{ border: '1px solid var(--rim)' }}>
+          <p className="text-[10px] tracking-widest uppercase mb-3" style={{ color: 'var(--muted)' }}>No ingredient data yet</p>
+          <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--muted)' }}>
+            Open Beauty Facts has this product listed, but nobody's logged its ingredient list yet —
+            so we can't score it. Try searching for a similar product, or check back later.
+          </p>
+        </div>
+      )}
+
       {/* Score summary */}
       {score && (
         <div style={{ border: '1px solid var(--rim)' }}>
@@ -148,6 +159,22 @@ export function ScanResult({ product, onReset }: Props) {
           <SectionHeader label="Moderate Concern" count={score.moderate_concern.length} accent="#a16207" />
           <div className="flex flex-wrap gap-3">
             {score.moderate_concern.map((ing) => (
+              <IngredientBadge key={ing.name} ingredient={ing} showConcern />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Comedogenic — informational, shown to everyone regardless of skin type */}
+      {score && score.comedogenic.length > 0 && (
+        <div className="p-6" style={{ border: '1px solid rgba(180,83,9,0.4)' }}>
+          <SectionHeader label="May Clog Pores (Comedogenic)" count={score.comedogenic.length} accent="#a16207" />
+          <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
+            Rated on the standard 0–5 comedogenicity scale. Matters most if you're acne-prone or oily —
+            set up your profile for a personalized read on this.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {score.comedogenic.map((ing) => (
               <IngredientBadge key={ing.name} ingredient={ing} showConcern />
             ))}
           </div>

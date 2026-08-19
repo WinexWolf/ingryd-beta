@@ -97,6 +97,32 @@ BENEFICIAL: dict[str, dict] = {
     "titanium dioxide": {"benefit": "Mineral UV filter", "category": "treatment"},
 }
 
+# Comedogenic ratings (0-5 scale, standard dermatological comedogenicity scale).
+# We only flag ingredients rated 3+ (moderate-to-high) — this is informational,
+# shown to every user regardless of skin type, and does NOT affect the base score,
+# since whether it matters depends entirely on the individual's skin (oily-skin
+# profiles already get an extra Fit Score penalty for these in scoring personalization).
+COMEDOGENIC: dict[str, dict] = {
+    "isopropyl myristate": {"rating": 5},
+    "algae extract": {"rating": 5},
+    "wheat germ oil": {"rating": 5},
+    "cocoa butter": {"rating": 5},
+    "red algae": {"rating": 5},
+    "isopropyl palmitate": {"rating": 4},
+    "myristyl myristate": {"rating": 4},
+    "oleic acid": {"rating": 4},
+    "acetylated lanolin": {"rating": 4},
+    "decyl oleate": {"rating": 4},
+    "coconut oil": {"rating": 4},
+    "mineral oil": {"rating": 3},
+    "lanolin": {"rating": 3},
+    "palm oil": {"rating": 3},
+    "cetearyl alcohol": {"rating": 3},
+    "peg-100 stearate": {"rating": 3},
+    "isopropyl isostearate": {"rating": 3},
+    "sodium lauryl sulfate": {"rating": 3},
+}
+
 # ---------------------------------------------------------------------------
 # Scoring
 # ---------------------------------------------------------------------------
@@ -117,12 +143,32 @@ def score_ingredients(ingredients: list[str], profile: SkinProfile | None = None
     high: list[IngredientFlag] = []
     moderate: list[IngredientFlag] = []
     beneficial: list[IngredientFlag] = []
+    comedogenic: list[IngredientFlag] = []
 
     seen_high: set[str] = set()
     seen_moderate: set[str] = set()
     seen_beneficial: set[str] = set()
+    seen_comedogenic: set[str] = set()
 
     for ingredient in ingredients:
+        # Comedogenic check runs independently of the categories below — an
+        # ingredient can be both e.g. "moderate concern" AND "comedogenic",
+        # since these are different axes and shouldn't gate each other out.
+        comedo_match = _match_ingredient(ingredient, COMEDOGENIC)
+        if comedo_match:
+            key, data = comedo_match
+            if key not in seen_comedogenic:
+                seen_comedogenic.add(key)
+                rating = data["rating"]
+                comedogenic.append(
+                    IngredientFlag(
+                        name=ingredient,
+                        concern="May clog pores for acne-prone or oily skin",
+                        severity="moderate",
+                        category=f"{rating}/5 comedogenic rating",
+                    )
+                )
+
         match = _match_ingredient(ingredient, HIGH_CONCERN)
         if match:
             key, data = match
@@ -169,6 +215,7 @@ def score_ingredients(ingredients: list[str], profile: SkinProfile | None = None
         high_concern=high,
         moderate_concern=moderate,
         beneficial=beneficial,
+        comedogenic=comedogenic,
         total_ingredients=len(ingredients),
         flagged_count=len(high) + len(moderate),
     )
@@ -195,7 +242,6 @@ def _grade_for(score: int) -> str:
 # Personalization — "Fit Score"
 # ---------------------------------------------------------------------------
 
-COMEDOGENIC = ["mineral oil", "petrolatum", "coconut oil", "lanolin", "isopropyl myristate", "cocoa butter"]
 DRYING_ALCOHOLS = ["alcohol denat", "sd alcohol", "denatured alcohol", "isopropyl alcohol", "ethanol"]
 SENSITIZERS = ["fragrance", "parfum", "essential oil", "citrus", "limonene", "linalool", "alcohol denat", "sd alcohol"]
 
@@ -226,7 +272,7 @@ def _apply_personalization(result: ProductScore, ingredients: list[str], profile
     # Skin-type-based penalties
     if profile.skin_type == "oily":
         for ing, norm in norm_ingredients:
-            hit = _any_match(norm, COMEDOGENIC)
+            hit = _any_match(norm, list(COMEDOGENIC.keys()))
             if hit and hit not in seen_adjustments:
                 seen_adjustments.add(hit)
                 adjustment -= 5

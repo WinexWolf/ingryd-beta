@@ -90,7 +90,7 @@ export function Profile() {
         <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'var(--muted)' }}>
           Ingredients you're sensitive to
         </p>
-        <form onSubmit={addSensitivity} className="flex gap-0">
+        <form onSubmit={addSensitivity} className="flex gap-3">
           <input
             type="text"
             value={sensitivityInput}
@@ -98,7 +98,7 @@ export function Profile() {
             placeholder="e.g. fragrance, essential oils"
             className="input flex-1"
           />
-          <button type="submit" disabled={!sensitivityInput.trim()} className="btn-primary border-l-0">Add</button>
+          <button type="submit" disabled={!sensitivityInput.trim()} className="btn-primary">Add</button>
         </form>
         {sensitivities.length > 0 && (
           <div className="flex flex-wrap gap-2">

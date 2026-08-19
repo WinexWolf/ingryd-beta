@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from app.services.open_beauty_facts import lookup_barcode
-from app.services.product_search import search_products
+from app.services.product_search import search_products, browse_products
 from app.models.product import ProductResult, ProductSearchResponse, SkinProfile
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -43,3 +43,14 @@ async def search(
 ):
     profile = _build_profile(skin_type, concerns, sensitivities)
     return await search_products(q, profile)
+
+
+@router.get("/browse", response_model=ProductSearchResponse)
+async def browse(
+    category: str = Query("skin-care-products", description="OBF category tag to browse"),
+    skin_type: str | None = Query(None),
+    concerns: str | None = Query(None, description="Comma-separated concerns"),
+    sensitivities: str | None = Query(None, description="Comma-separated sensitivities"),
+):
+    profile = _build_profile(skin_type, concerns, sensitivities)
+    return await browse_products(category=category, profile=profile)
