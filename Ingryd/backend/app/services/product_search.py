@@ -76,15 +76,22 @@ async def browse_products(
 ) -> ProductSearchResponse:
     """Alphabetically-sorted product list for the Search page's default/empty-query view.
 
-    No category filter: Open Beauty Facts only contains cosmetics/skincare products
-    in the first place, so sorting the whole database by name works without needing
-    to guess at any category taxonomy tag.
+    Filters on OBF's own "en:complete" data-quality state tag — entries where OBF's
+    contributors have filled in name, brand, and ingredients. Without this filter,
+    the vast majority of OBF's ~73K entries are barcode-only scans with none of that
+    filled in (confirmed empirically: only ~2% of raw entries had a product_name at
+    all), so a plain alphabetical sort surfaces mostly blank junk. This filter cuts
+    the pool down to ~1,660 well-populated products, which is what actually makes a
+    usable browse list.
     """
     params = {
         "action": "process",
         "json": 1,
         "sort_by": "product_name",
         "page_size": page_size,
+        "tagtype_0": "states",
+        "tag_contains_0": "contains",
+        "tag_0": "en:complete",
         "fields": RESULT_FIELDS,
     }
     async with httpx.AsyncClient(timeout=10.0) as client:
