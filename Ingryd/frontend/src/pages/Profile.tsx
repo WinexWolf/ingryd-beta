@@ -12,12 +12,14 @@ export function Profile() {
   const [sensitivityInput, setSensitivityInput] = useState('')
 
   useEffect(() => {
-    const existing = getProfile()
-    if (existing) {
+    let cancelled = false
+    getProfile().then((existing) => {
+      if (cancelled || !existing) return
       setSkinType(existing.skin_type)
       setConcerns(existing.concerns)
       setSensitivities(existing.sensitivities)
-    }
+    })
+    return () => { cancelled = true }
   }, [])
 
   const toggleConcern = (c: string) => {
@@ -37,8 +39,8 @@ export function Profile() {
     setSensitivities((prev) => prev.filter((x) => x !== s))
   }
 
-  const save = () => {
-    saveProfile({ skin_type: skinType, concerns, sensitivities })
+  const save = async () => {
+    await saveProfile({ skin_type: skinType, concerns, sensitivities })
     navigate('/')
   }
 

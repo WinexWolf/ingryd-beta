@@ -17,6 +17,7 @@ function ProductRow({ product, onRemove }: { product: RoutineProductInput; onRem
 
 export function Routine() {
   const [products, setProducts] = useState<RoutineProductInput[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [addSlot, setAddSlot] = useState<'am' | 'pm'>('am')
   const [addMode, setAddMode] = useState<'barcode' | 'search'>('barcode')
   const [inputValue, setInputValue] = useState('')
@@ -26,12 +27,22 @@ export function Routine() {
   const [checking, setChecking] = useState(false)
 
   useEffect(() => {
-    setProducts(getRoutine())
+    let cancelled = false
+    getRoutine().then((r) => {
+      if (cancelled) return
+      setProducts(r)
+      setLoaded(true)
+    })
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
+    // Guard against saving before the initial fetch resolves — without this,
+    // the empty initial state would overwrite the real saved routine on every
+    // page load, before getRoutine() above has a chance to populate it.
+    if (!loaded) return
     saveRoutine(products)
-  }, [products])
+  }, [products, loaded])
 
   const addProduct = async (e: React.FormEvent) => {
     e.preventDefault()

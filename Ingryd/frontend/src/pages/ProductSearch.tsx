@@ -11,11 +11,11 @@ type PageState = 'loading' | 'browsing' | 'results' | 'detail' | 'error'
 function AddToRoutineButtons({ product }: { product: ProductResult }) {
   const [added, setAdded] = useState<'am' | 'pm' | null>(null)
 
-  const addTo = (slot: 'am' | 'pm') => {
-    const current = getRoutine()
+  const addTo = async (slot: 'am' | 'pm') => {
+    const current = await getRoutine()
     const already = current.some((p) => p.name === (product.name ?? product.barcode) && p.slot === slot)
     if (!already) {
-      saveRoutine([
+      await saveRoutine([
         ...current,
         {
           name: product.name ?? `Product ${product.barcode}`,

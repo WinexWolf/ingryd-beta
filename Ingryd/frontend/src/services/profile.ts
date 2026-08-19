@@ -1,26 +1,41 @@
 import type { SkinPreferences } from '../types'
+import { supabase } from './supabaseClient'
 
-const PROFILE_KEY = 'ingryd_skin_profile'
+export async function getProfile(): Promise<SkinPreferences | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
 
-export function getProfile(): SkinPreferences | null {
-  try {
-    const raw = localStorage.getItem(PROFILE_KEY)
-    return raw ? (JSON.parse(raw) as SkinPreferences) : null
-  } catch {
-    return null
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('skin_type, concerns, sensitivities')
+    .eq('id', user.id)
+    .single()
+
+  if (error || !data) return null
+
+  return {
+    skin_type: data.skin_type ?? undefined,
+    concerns: data.concerns ?? [],
+    sensitivities: data.sensitivities ?? [],
   }
 }
 
-export function saveProfile(profile: SkinPreferences) {
-  try {
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile))
-  } catch {
-    // non-critical for beta
-  }
+export async function saveProfile(profile: SkinPreferences): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  await supabase
+    .from('profiles')
+    .update({
+      skin_type: profile.skin_type ?? null,
+      concerns: profile.concerns,
+      sensitivities: profile.sensitivities,
+    })
+    .eq('id', user.id)
 }
 
-export function hasProfile(): boolean {
-  const p = getProfile()
+export async function hasProfile(): Promise<boolean> {
+  const p = await getProfile()
   return !!p && (!!p.skin_type || p.concerns.length > 0 || p.sensitivities.length > 0)
 }
 

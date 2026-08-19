@@ -52,15 +52,18 @@ const gradeColors: Record<string, { text: string; border: string; bg: string }> 
 export function Home() {
   const [scans, setScans] = useState<ScanHistoryEntry[]>([])
   const [skinHistory, setSkinHistory] = useState<SkinHistoryEntry[]>([])
+  const [profileSet, setProfileSet] = useState(false)
 
   useEffect(() => {
-    setScans(getScanHistory())
-    setSkinHistory(getSkinHistory())
+    let cancelled = false
+    getScanHistory().then((r) => { if (!cancelled) setScans(r) })
+    getSkinHistory().then((r) => { if (!cancelled) setSkinHistory(r) })
+    hasProfile().then((r) => { if (!cancelled) setProfileSet(r) })
+    return () => { cancelled = true }
   }, [])
 
   const hasActivity = scans.length > 0 || skinHistory.length > 0
   const latestSkin = skinHistory[0]
-  const profileSet = hasProfile()
 
   return (
     <div className="flex flex-col gap-24">

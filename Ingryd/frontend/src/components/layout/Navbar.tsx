@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 import { ThemeToggle } from '../ui/ThemeToggle'
 import { useTheme } from '../../hooks/useTheme'
 import { hasProfile } from '../../services/profile'
+import { useAuth } from '../../services/AuthContext'
 
 const links = [
   { to: '/scan', label: 'Scan', active: true },
@@ -14,9 +15,33 @@ const links = [
 
 export function Navbar() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const { dark, toggle } = useTheme()
-  const profileSet = hasProfile()
+  const { user, signOut } = useAuth()
+  const [profileSet, setProfileSet] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    if (!user) {
+      setProfileSet(false)
+      return
+    }
+    hasProfile().then((result) => {
+      if (!cancelled) setProfileSet(result)
+    })
+    return () => { cancelled = true }
+  }, [user, pathname])
+
+  const handleAuthClick = async () => {
+    setMenuOpen(false)
+    if (user) {
+      await signOut()
+      navigate('/')
+    } else {
+      navigate('/auth')
+    }
+  }
 
   return (
     <nav
@@ -74,6 +99,14 @@ export function Navbar() {
             {profileSet ? 'My Profile' : 'Set Up Profile'}
           </Link>
 
+          <button
+            onClick={handleAuthClick}
+            className="ml-2 flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-widest uppercase font-semibold rounded-full transition-colors duration-150"
+            style={{ border: '1px solid var(--rim)', color: 'var(--muted)' }}
+          >
+            {user ? 'Log Out' : 'Log In'}
+          </button>
+
           <div className="ml-4">
             <ThemeToggle dark={dark} onToggle={toggle} />
           </div>
@@ -127,6 +160,13 @@ export function Navbar() {
           >
             {profileSet ? 'My Profile' : 'Set Up Profile'}
           </Link>
+          <button
+            onClick={handleAuthClick}
+            className="px-6 py-4 text-sm tracking-widest uppercase font-semibold text-left"
+            style={{ color: 'var(--muted)', borderTop: '1px solid var(--rim)' }}
+          >
+            {user ? 'Log Out' : 'Log In'}
+          </button>
         </div>
       )}
     </nav>

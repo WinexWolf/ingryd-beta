@@ -1,8 +1,5 @@
 import type { ProductResult, SkinProfile, RoutineProductInput } from '../types'
-
-const SCAN_KEY = 'ingryd_scan_history'
-const SKIN_KEY = 'ingryd_skin_history'
-const ROUTINE_KEY = 'ingryd_routine'
+import { supabase } from './supabaseClient'
 
 export interface ScanHistoryEntry {
   id: string
@@ -16,51 +13,106 @@ export interface SkinHistoryEntry {
   profile: SkinProfile
 }
 
-function readList<T>(key: string): T[] {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? (JSON.parse(raw) as T[]) : []
-  } catch {
-    return []
-  }
-}
-
-function writeList<T>(key: string, items: T[]) {
-  try {
-    localStorage.setItem(key, JSON.stringify(items))
-  } catch {
-    // storage unavailable — fail silently, beta feature is non-critical
-  }
+async function currentUserId(): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  return user?.id ?? null
 }
 
 // ── Scan history ────────────────────────────────────────────
-export function getScanHistory(): ScanHistoryEntry[] {
-  return readList<ScanHistoryEntry>(SCAN_KEY).sort((a, b) => b.timestamp - a.timestamp)
+export async function getScanHistory(): Promise<ScanHistoryEntry[]> {
+  const userId = await currentUserId()
+  if (!userId) return []
+
+  const { data, error } = await supabase
+    .from('scan_history')
+    .select('id, created_at, product')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  if (error || !data) return []
+
+  return data.map((row) => ({
+    id: row.id,
+    timestamp: new Date(row.created_at).getTime(),
+    product: row.product as ProductResult,
+  }))
 }
 
-export function addScanToHistory(product: ProductResult) {
+export async function addScanToHistory(product: ProductResult): Promise<void> {
   if (!product.found) return
-  const entries = readList<ScanHistoryEntry>(SCAN_KEY)
-  entries.push({ id: crypto.randomUUID(), timestamp: Date.now(), product })
-  writeList(SCAN_KEY, entries.slice(-100))
+  const userId = await currentUserId()
+  if (!userId) return
+
+  await supabase.from('scan_history').insert({ user_id: userId, product })
 }
 
 // ── Skin analysis history ───────────────────────────────────
-export function getSkinHistory(): SkinHistoryEntry[] {
-  return readList<SkinHistoryEntry>(SKIN_KEY).sort((a, b) => b.timestamp - a.timestamp)
+export async function getSkinHistory(): Promise<SkinHistoryEntry[]> {
+  const userId = await currentUserId()
+  if (!userId) return []
+
+  const { data, error } = await supabase
+    .from('skin_analysis_history')
+    .select('id, created_at, profile')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  if (error || !data) return []
+
+  return data.map((row) => ({
+    id: row.id,
+    timestamp: new Date(row.created_at).getTime(),
+    profile: row.profile as SkinProfile,
+  }))
 }
 
-export function addSkinAnalysisToHistory(profile: SkinProfile) {
-  const entries = readList<SkinHistoryEntry>(SKIN_KEY)
-  entries.push({ id: crypto.randomUUID(), timestamp: Date.now(), profile })
-  writeList(SKIN_KEY, entries.slice(-50))
+export async function addSkinAnalysisToHistory(profile: SkinProfile): Promise<void> {
+  const userId = await currentUserId()
+  if (!userId) return
+
+  await supabase.from('skin_analysis_history').insert({ user_id: userId, profile })
 }
 
 // ── Routine (current AM/PM product list) ────────────────────
-export function getRoutine(): RoutineProductInput[] {
-  return readList<RoutineProductInput>(ROUTINE_KEY)
+export async function getRoutine(): Promise<RoutineProductInput[]> {
+  const userId = await currentUserId()
+  if (!userId) return []
+
+  const { data, error } = await supabase
+    .from('routine_items')
+    .select('slot, product_name, ingredients_parsed')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+
+  if (error || !data) return []
+
+  return data.map((row) => ({
+    name: row.product_name,
+    slot: row.slot as 'am' | 'pm',
+    ingredients_parsed: (row.ingredients_parsed as string[]) ?? [],
+  }))
 }
 
-export function saveRoutine(products: RoutineProductInput[]) {
-  writeList(ROUTINE_KEY, products)
+// Replaces the whole routine — matches the existing call pattern used across
+// Routine.tsx and ProductSearch.tsx (add/remove one item, then save the full
+// list). Delete-then-insert isn't atomic, but for a beta this is an acceptable
+// tradeoff against rewriting every call site to use incremental add/remove.
+export async function saveRoutine(products: RoutineProductInput[]): Promise<void> {
+  const userId = await currentUserId()
+  if (!userId) return
+
+  await supabase.from('routine_items').delete().eq('user_id', userId)
+
+  if (products.length === 0) return
+
+  await supabase.from('routine_items').insert(
+    products.map((p) => ({
+      user_id: userId,
+      slot: p.slot,
+      product_name: p.name,
+      ingredients_parsed: p.ingredients_parsed,
+    }))
+  )
 }

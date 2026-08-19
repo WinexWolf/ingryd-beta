@@ -18,19 +18,19 @@ async function handle<T>(res: Response): Promise<T> {
 }
 
 export async function fetchProductByBarcode(barcode: string): Promise<ProductResult> {
-  const profileQs = profileToQueryParams(getProfile())
+  const profileQs = profileToQueryParams(await getProfile())
   const res = await fetch(`${BASE}/products/barcode/${barcode}?${profileQs.replace(/^&/, '')}`)
   return handle<ProductResult>(res)
 }
 
 export async function searchProducts(query: string): Promise<ProductSearchResponse> {
-  const profileQs = profileToQueryParams(getProfile())
+  const profileQs = profileToQueryParams(await getProfile())
   const res = await fetch(`${BASE}/products/search?q=${encodeURIComponent(query)}${profileQs}`)
   return handle<ProductSearchResponse>(res)
 }
 
 export async function browseProducts(): Promise<ProductSearchResponse> {
-  const profileQs = profileToQueryParams(getProfile())
+  const profileQs = profileToQueryParams(await getProfile())
   const res = await fetch(`${BASE}/products/browse?${profileQs.replace(/^&/, '')}`)
   return handle<ProductSearchResponse>(res)
 }

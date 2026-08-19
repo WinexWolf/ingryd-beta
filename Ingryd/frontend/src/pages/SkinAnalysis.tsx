@@ -44,7 +44,9 @@ export function SkinAnalysis() {
   const streamRef = useRef<MediaStream | null>(null)
 
   useEffect(() => {
-    setHistory(getSkinHistory())
+    let cancelled = false
+    getSkinHistory().then((r) => { if (!cancelled) setHistory(r) })
+    return () => { cancelled = true }
   }, [])
 
   const stopCamera = useCallback(() => {
@@ -98,8 +100,8 @@ export function SkinAnalysis() {
     try {
       const result = await analyzeSkin(imageData)
       setProfile(result)
-      addSkinAnalysisToHistory(result)
-      setHistory(getSkinHistory())
+      await addSkinAnalysisToHistory(result)
+      setHistory(await getSkinHistory())
       setPageState('result')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
