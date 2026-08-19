@@ -56,6 +56,7 @@ export function ProductSearch() {
   const [results, setResults] = useState<ProductResult[]>([])
   const [selected, setSelected] = useState<ProductResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [browseFailed, setBrowseFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -63,12 +64,14 @@ export function ProductSearch() {
       .then((res) => {
         if (cancelled) return
         setResults(res.results)
+        setBrowseFailed(false)
         setPageState('browsing')
       })
       .catch(() => {
         if (cancelled) return
         setPageState('browsing')
         setResults([])
+        setBrowseFailed(true)
       })
     return () => { cancelled = true }
   }, [])
@@ -151,7 +154,9 @@ export function ProductSearch() {
             <div className="p-10 text-center" style={{ border: '1px solid var(--rim)' }}>
               <p className="text-sm" style={{ color: 'var(--muted)' }}>
                 {pageState === 'browsing'
-                  ? "Couldn't load the browse list right now — try searching by name instead."
+                  ? browseFailed
+                    ? "Couldn't reach the product database right now — try searching by name instead."
+                    : "No products matched this category yet. Try searching by name instead."
                   : 'No products matched that search. Try a broader term.'}
               </p>
             </div>
