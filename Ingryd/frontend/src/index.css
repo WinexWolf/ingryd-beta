@@ -1,0 +1,191 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────
+   Design tokens — Strawberry Matcha
+   Light mode: matcha green is primary accent, strawberry is secondary
+   Dark mode:  strawberry leads, matcha is secondary
+───────────────────────────────────────────────────────────── */
+:root {
+  --bg:       #FBF7EC;
+  --surface:  #FFFFFF;
+  --fg:       #241F17;
+  --muted:    rgba(36,31,23,0.5);
+  --rim:      rgba(36,31,23,0.12);
+  --primary:  #6F8F4C;   /* matcha leads in light */
+  --primary-fg: #FFFFFF;
+  --secondary: #E2596F;  /* strawberry is secondary in light */
+  --petal:    #E2596F;
+  --moss:     #6F8F4C;
+  --ink:      #241F17;
+  --chalk:    #D9D2BE;
+}
+
+.dark {
+  --bg:       #14150F;
+  --surface:  #1D1F16;
+  --fg:       #F3EEE1;
+  --muted:    rgba(243,238,225,0.45);
+  --rim:      #33352A;
+  --primary:  #F0748A;   /* strawberry leads in dark */
+  --primary-fg: #14150F;
+  --secondary: #8FB56A;  /* matcha is secondary in dark */
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Base
+───────────────────────────────────────────────────────────── */
+@layer base {
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  ::selection { background: var(--primary); color: var(--primary-fg); }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Components
+───────────────────────────────────────────────────────────── */
+@layer components {
+
+  /* Buttons */
+  .btn-primary {
+    @apply font-semibold px-6 py-3 text-sm tracking-widest uppercase transition-colors duration-150 rounded;
+    @apply disabled:opacity-30 disabled:cursor-not-allowed;
+    background-color: var(--primary);
+    color: var(--primary-fg);
+    border: 1px solid var(--primary);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--bg);
+    color: var(--primary);
+  }
+
+  .btn-outline {
+    @apply font-semibold px-6 py-3 text-sm tracking-widest uppercase transition-colors duration-150 rounded;
+    background-color: transparent;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+  }
+  .btn-outline:hover {
+    background-color: var(--primary);
+    color: var(--primary-fg);
+  }
+
+  .btn-ghost {
+    @apply font-semibold px-6 py-3 text-sm tracking-widest uppercase transition-colors duration-150 rounded;
+    background-color: transparent;
+    color: var(--fg);
+    border: 1px solid var(--rim);
+  }
+  .btn-ghost:hover { border-color: var(--fg); }
+
+  .btn-secondary {
+    @apply font-semibold px-6 py-3 text-sm tracking-widest uppercase transition-colors duration-150 rounded;
+    background-color: var(--secondary);
+    color: var(--primary-fg);
+    border: 1px solid var(--secondary);
+  }
+  .btn-secondary:hover {
+    background-color: var(--bg);
+    color: var(--secondary);
+  }
+
+  /* Cards */
+  .card {
+    @apply p-6 rounded-lg;
+    background-color: var(--surface);
+    border: 1px solid var(--rim);
+    box-shadow: 0 1px 3px rgba(36,31,23,0.04);
+  }
+
+  /* Input */
+  .input {
+    @apply w-full px-4 py-3 text-sm transition-colors rounded;
+    background-color: var(--surface);
+    color: var(--fg);
+    border: 1px solid var(--rim);
+    outline: none;
+  }
+  .input::placeholder { color: var(--muted); }
+  .input:focus { border-color: var(--primary); }
+
+  /* Ingredient badges */
+  .badge-harmful {
+    @apply inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 tracking-wide uppercase rounded-full;
+    background-color: rgba(224,122,95,0.14);
+    color: #c2540f;
+    border: 1px solid rgba(224,122,95,0.4);
+  }
+  .badge-moderate {
+    @apply inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 tracking-wide uppercase rounded-full;
+    background-color: rgba(224,163,53,0.14);
+    color: #a5710a;
+    border: 1px solid rgba(224,163,53,0.4);
+  }
+  .badge-beneficial {
+    @apply inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 tracking-wide uppercase rounded-full;
+    background-color: rgba(111,143,76,0.14);
+    color: var(--moss);
+    border: 1px solid var(--moss);
+  }
+  .badge-neutral {
+    @apply inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 tracking-wide uppercase rounded-full;
+    background-color: transparent;
+    color: var(--muted);
+    border: 1px solid var(--rim);
+  }
+
+  /* Accent dividers */
+  .accent-border  { border-left: 3px solid var(--primary); border-radius: 0; }
+  .accent-border2 { border-left: 3px solid var(--secondary); border-radius: 0; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Shimmer — primary accent color, different per mode
+───────────────────────────────────────────────────────────── */
+@keyframes shimmer-move {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* Light mode: matcha shimmer (green headline) */
+.shimmer-text {
+  background: linear-gradient(90deg, #4C6635 0%, #6F8F4C 35%, #A9C47F 55%, #6F8F4C 70%, #4C6635 100%);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer-move 4s linear infinite;
+}
+
+/* Dark mode: strawberry shimmer (pink headline) */
+.dark .shimmer-text {
+  background: linear-gradient(90deg, #F0748A 0%, #FBC0CC 40%, #F0748A 60%, #C24F62 100%);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Scanner
+───────────────────────────────────────────────────────────── */
+@keyframes scan-line-anim {
+  0%   { top: 10%; }
+  50%  { top: 86%; }
+  100% { top: 10%; }
+}
+.scan-line { animation: scan-line-anim 2.4s ease-in-out infinite; }
+
+/* Score ring */
+.score-ring {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1);
+}
