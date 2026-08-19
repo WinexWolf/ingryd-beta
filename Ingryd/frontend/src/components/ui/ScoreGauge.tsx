@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function ScoreGauge({ score, grade, fitScore, fitGrade }: Props) {
-  const personalized = fitScore !== undefined && fitGrade !== undefined
+  const personalized = typeof fitScore === 'number' && typeof fitGrade === 'string'
   const displayScore = personalized ? fitScore! : score
   const displayGrade = personalized ? fitGrade! : grade
   const config = GRADE_CONFIG[displayGrade]
