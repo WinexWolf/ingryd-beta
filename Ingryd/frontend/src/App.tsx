@@ -7,6 +7,7 @@ import { SkinAnalysis } from './pages/SkinAnalysis'
 import { ProductSearch } from './pages/ProductSearch'
 import { Routine } from './pages/Routine'
 import { Profile } from './pages/Profile'
+import { Auth } from './pages/Auth'
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
             <Route path="/search" element={<ProductSearch />} />
             <Route path="/routine" element={<Routine />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/auth" element={<Auth />} />
           </Routes>
         </ErrorBoundary>
       </Layout>
