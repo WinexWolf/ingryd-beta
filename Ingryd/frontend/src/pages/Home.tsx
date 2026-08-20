@@ -84,9 +84,9 @@ export function Home() {
         </div>
 
         <h1 className="font-display text-7xl sm:text-8xl lg:text-9xl leading-[0.92] mb-8" style={{ color: 'var(--fg)' }}>
-          Stop guessing.
+          Know what's
           <br />
-          <span className="shimmer-text">Start glowing.</span>
+          <span className="shimmer-text">on your skin.</span>
         </h1>
         <p className="text-lg max-w-lg leading-relaxed mb-10 font-sans" style={{ color: 'var(--muted)' }}>
           Ingryd reads the ingredient list so you don't have to — real scores, plain-English breakdowns,

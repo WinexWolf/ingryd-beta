@@ -32,12 +32,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signUp = async (email: string, password: string, name: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { name } },
     })
-    return { error: error?.message ?? null }
+
+    if (error) {
+      // Supabase's explicit error path when email confirmations are off.
+      if (/already registered|already exists/i.test(error.message)) {
+        return { error: 'An account with this email already exists — please log in instead.' }
+      }
+      return { error: error.message }
+    }
+
+    // When email confirmations are ON, Supabase doesn't return an error for a
+    // duplicate email (to avoid leaking which emails are registered) — instead
+    // it returns a user object with an empty identities array. This is the
+    // only reliable signal for that case.
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      return { error: 'An account with this email already exists — please log in instead.' }
+    }
+
+    return { error: null }
   }
 
   const signIn = async (email: string, password: string) => {

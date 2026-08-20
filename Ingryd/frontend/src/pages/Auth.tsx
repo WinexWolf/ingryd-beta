@@ -26,6 +26,9 @@ export function Auth() {
     setBusy(false)
     if (result.error) {
       setError(result.error)
+      if (mode === 'signup' && /already exists/i.test(result.error)) {
+        setMode('login')
+      }
       return
     }
 

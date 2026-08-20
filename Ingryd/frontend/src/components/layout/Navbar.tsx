@@ -88,16 +88,18 @@ export function Navbar() {
             )
           })}
 
-          <Link
-            to="/profile"
-            className="ml-2 flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-widest uppercase font-semibold rounded-full transition-colors duration-150"
-            style={{
-              border: `1px solid ${profileSet ? 'var(--primary)' : 'var(--rim)'}`,
-              color: profileSet ? 'var(--primary)' : 'var(--muted)',
-            }}
-          >
-            {profileSet ? 'My Profile' : 'Set Up Profile'}
-          </Link>
+          {user && (
+            <Link
+              to="/profile"
+              className="ml-2 flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-widest uppercase font-semibold rounded-full transition-colors duration-150"
+              style={{
+                border: `1px solid ${profileSet ? 'var(--primary)' : 'var(--rim)'}`,
+                color: profileSet ? 'var(--primary)' : 'var(--muted)',
+              }}
+            >
+              {profileSet ? 'My Profile' : 'Set Up Profile'}
+            </Link>
+          )}
 
           <button
             onClick={handleAuthClick}
@@ -152,14 +154,16 @@ export function Navbar() {
               </Link>
             )
           })}
-          <Link
-            to="/profile"
-            onClick={() => setMenuOpen(false)}
-            className="px-6 py-4 text-sm tracking-widest uppercase font-semibold"
-            style={{ color: profileSet ? 'var(--primary)' : 'var(--muted)' }}
-          >
-            {profileSet ? 'My Profile' : 'Set Up Profile'}
-          </Link>
+          {user && (
+            <Link
+              to="/profile"
+              onClick={() => setMenuOpen(false)}
+              className="px-6 py-4 text-sm tracking-widest uppercase font-semibold"
+              style={{ color: profileSet ? 'var(--primary)' : 'var(--muted)' }}
+            >
+              {profileSet ? 'My Profile' : 'Set Up Profile'}
+            </Link>
+          )}
           <button
             onClick={handleAuthClick}
             className="px-6 py-4 text-sm tracking-widest uppercase font-semibold text-left"

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Sun, Moon, Check } from 'lucide-react'
 import { searchProducts, browseProducts } from '../services/api'
-import { addScanToHistory, getRoutine, saveRoutine } from '../services/history'
+import { addScanToHistory, addRoutineItem } from '../services/history'
 import { ScanResult } from '../components/scanner/ScanResult'
 import type { ProductResult, GradeKey } from '../types'
 import { GRADE_CONFIG } from '../types'
@@ -10,43 +10,46 @@ type PageState = 'loading' | 'browsing' | 'results' | 'detail' | 'error'
 
 function AddToRoutineButtons({ product }: { product: ProductResult }) {
   const [added, setAdded] = useState<'am' | 'pm' | null>(null)
+  const [failed, setFailed] = useState(false)
 
   const addTo = async (slot: 'am' | 'pm') => {
-    const current = await getRoutine()
-    const already = current.some((p) => p.name === (product.name ?? product.barcode) && p.slot === slot)
-    if (!already) {
-      await saveRoutine([
-        ...current,
-        {
-          name: product.name ?? `Product ${product.barcode}`,
-          brand: product.brand,
-          slot,
-          ingredients_parsed: product.ingredients_parsed,
-        },
-      ])
+    setFailed(false)
+    const result = await addRoutineItem({
+      name: product.name ?? `Product ${product.barcode}`,
+      brand: product.brand,
+      slot,
+      ingredients_parsed: product.ingredients_parsed,
+    })
+    if (!result) {
+      setFailed(true)
+      setTimeout(() => setFailed(false), 2000)
+      return
     }
     setAdded(slot)
     setTimeout(() => setAdded(null), 1500)
   }
 
   return (
-    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-      <button
-        onClick={() => addTo('am')}
-        title="Add to Morning routine"
-        className="p-1.5 rounded-full transition-colors"
-        style={{ border: '1px solid var(--rim)', color: added === 'am' ? 'var(--moss)' : 'var(--muted)' }}
-      >
-        {added === 'am' ? <Check size={13} /> : <Sun size={13} />}
-      </button>
-      <button
-        onClick={() => addTo('pm')}
-        title="Add to Evening routine"
-        className="p-1.5 rounded-full transition-colors"
-        style={{ border: '1px solid var(--rim)', color: added === 'pm' ? 'var(--moss)' : 'var(--muted)' }}
-      >
-        {added === 'pm' ? <Check size={13} /> : <Moon size={13} />}
-      </button>
+    <div className="flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
+      <div className="flex gap-1">
+        <button
+          onClick={() => addTo('am')}
+          title="Add to Morning routine"
+          className="p-1.5 rounded-full transition-colors"
+          style={{ border: '1px solid var(--rim)', color: added === 'am' ? 'var(--moss)' : 'var(--muted)' }}
+        >
+          {added === 'am' ? <Check size={13} /> : <Sun size={13} />}
+        </button>
+        <button
+          onClick={() => addTo('pm')}
+          title="Add to Evening routine"
+          className="p-1.5 rounded-full transition-colors"
+          style={{ border: '1px solid var(--rim)', color: added === 'pm' ? 'var(--moss)' : 'var(--muted)' }}
+        >
+          {added === 'pm' ? <Check size={13} /> : <Moon size={13} />}
+        </button>
+      </div>
+      {failed && <span className="text-[9px] text-red-700">couldn't add</span>}
     </div>
   )
 }

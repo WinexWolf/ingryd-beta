@@ -78,6 +78,7 @@ export interface SkinProfile {
 }
 
 export interface RoutineProductInput {
+  id?: string
   name: string
   brand?: string
   slot: 'am' | 'pm'

@@ -82,13 +82,14 @@ export async function getRoutine(): Promise<RoutineProductInput[]> {
 
   const { data, error } = await supabase
     .from('routine_items')
-    .select('slot, product_name, brand, ingredients_parsed')
+    .select('id, slot, product_name, brand, ingredients_parsed')
     .eq('user_id', userId)
     .order('created_at', { ascending: true })
 
   if (error || !data) return []
 
   return data.map((row) => ({
+    id: row.id,
     name: row.product_name,
     brand: row.brand ?? undefined,
     slot: row.slot as 'am' | 'pm',
@@ -96,25 +97,33 @@ export async function getRoutine(): Promise<RoutineProductInput[]> {
   }))
 }
 
-// Replaces the whole routine — matches the existing call pattern used across
-// Routine.tsx and ProductSearch.tsx (add/remove one item, then save the full
-// list). Delete-then-insert isn't atomic, but for a beta this is an acceptable
-// tradeoff against rewriting every call site to use incremental add/remove.
-export async function saveRoutine(products: RoutineProductInput[]): Promise<void> {
+// Adds a single item and returns it with its new database id. Incremental
+// add/remove (rather than "fetch whole list, save whole list") avoids a race
+// condition where two quick add-clicks could read the same stale snapshot
+// and silently drop one of them.
+export async function addRoutineItem(item: RoutineProductInput): Promise<RoutineProductInput | null> {
+  const userId = await currentUserId()
+  if (!userId) return null
+
+  const { data, error } = await supabase
+    .from('routine_items')
+    .insert({
+      user_id: userId,
+      slot: item.slot,
+      product_name: item.name,
+      brand: item.brand ?? null,
+      ingredients_parsed: item.ingredients_parsed,
+    })
+    .select('id')
+    .single()
+
+  if (error || !data) return null
+  return { ...item, id: data.id }
+}
+
+export async function removeRoutineItem(id: string): Promise<void> {
   const userId = await currentUserId()
   if (!userId) return
 
-  await supabase.from('routine_items').delete().eq('user_id', userId)
-
-  if (products.length === 0) return
-
-  await supabase.from('routine_items').insert(
-    products.map((p) => ({
-      user_id: userId,
-      slot: p.slot,
-      product_name: p.name,
-      brand: p.brand ?? null,
-      ingredients_parsed: p.ingredients_parsed,
-    }))
-  )
+  await supabase.from('routine_items').delete().eq('id', id).eq('user_id', userId)
 }

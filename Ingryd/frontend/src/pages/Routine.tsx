@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Sun, Moon, X } from 'lucide-react'
 import { fetchProductByBarcode, searchProducts, checkRoutine } from '../services/api'
-import { getRoutine, saveRoutine } from '../services/history'
+import { getRoutine, addRoutineItem, removeRoutineItem } from '../services/history'
 import { BottleIcon } from '../components/routine/BottleIcon'
-import type { RoutineProductInput, RoutineCheckResponse } from '../types'
+import type { RoutineProductInput, RoutineCheckResponse, ProductResult } from '../types'
 
 function ShelfCard({ product, index, onRemove }: { product: RoutineProductInput; index: number; onRemove: () => void }) {
-  const color = index % 2 === 0 ? 'var(--moss)' : 'var(--secondary)'
+  const color = index % 2 === 0 ? 'var(--primary)' : 'var(--secondary)'
   return (
     <div className="text-center flex-shrink-0" style={{ width: 78 }}>
       <BottleIcon name={product.name} color={color} />
@@ -31,19 +31,19 @@ function ShelfCard({ product, index, onRemove }: { product: RoutineProductInput;
   )
 }
 
-function Shelf({ products, onRemove }: { products: (RoutineProductInput & { idx: number })[]; onRemove: (idx: number) => void }) {
+function Shelf({ products, onRemove }: { products: RoutineProductInput[]; onRemove: (id: string) => void }) {
   if (products.length === 0) {
     return (
-      <div className="relative rounded-lg p-6" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--rim)' }}>
+      <div className="relative rounded-lg p-6" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--rim)' }}>
         <p className="text-xs" style={{ color: 'var(--muted)' }}>No products added yet.</p>
       </div>
     )
   }
   return (
-    <div className="relative rounded-lg pt-5 px-4 pb-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--rim)' }}>
+    <div className="relative rounded-lg pt-5 px-4 pb-4" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--rim)' }}>
       <div className="flex gap-4 items-end overflow-x-auto pb-2">
         {products.map((p, i) => (
-          <ShelfCard key={p.idx} product={p} index={i} onRemove={() => onRemove(p.idx)} />
+          <ShelfCard key={p.id} product={p} index={i} onRemove={() => p.id && onRemove(p.id)} />
         ))}
       </div>
       <div className="h-[3px] rounded mt-1" style={{ backgroundColor: 'var(--rim)' }} />
@@ -53,62 +53,42 @@ function Shelf({ products, onRemove }: { products: (RoutineProductInput & { idx:
 
 export function Routine() {
   const [products, setProducts] = useState<RoutineProductInput[]>([])
-  const [loaded, setLoaded] = useState(false)
   const [addSlot, setAddSlot] = useState<'am' | 'pm'>('am')
   const [addMode, setAddMode] = useState<'barcode' | 'search'>('barcode')
   const [inputValue, setInputValue] = useState('')
   const [busy, setBusy] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
+  const [searchResults, setSearchResults] = useState<ProductResult[]>([])
   const [result, setResult] = useState<RoutineCheckResponse | null>(null)
   const [checking, setChecking] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    getRoutine().then((r) => {
-      if (cancelled) return
-      setProducts(r)
-      setLoaded(true)
-    })
+    getRoutine().then((r) => { if (!cancelled) setProducts(r) })
     return () => { cancelled = true }
   }, [])
 
-  useEffect(() => {
-    // Guard against saving before the initial fetch resolves — without this,
-    // the empty initial state would overwrite the real saved routine on every
-    // page load, before getRoutine() above has a chance to populate it.
-    if (!loaded) return
-    saveRoutine(products)
-  }, [products, loaded])
+  const addOne = async (name: string, brand: string | undefined, ingredients: string[]) => {
+    const added = await addRoutineItem({ name, brand, slot: addSlot, ingredients_parsed: ingredients })
+    if (added) {
+      setProducts((prev) => [...prev, added])
+    } else {
+      setAddError('Could not save to your routine. Try logging in again.')
+    }
+  }
 
-  const addProduct = async (e: React.FormEvent) => {
+  const handleBarcodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!inputValue.trim()) return
     setBusy(true)
     setAddError(null)
     try {
-      if (addMode === 'barcode') {
-        const p = await fetchProductByBarcode(inputValue.trim())
-        if (!p.found) {
-          setAddError('Product not found for that barcode.')
-        } else {
-          setProducts((prev) => [
-            ...prev,
-            { name: p.name ?? `Product ${p.barcode}`, brand: p.brand, slot: addSlot, ingredients_parsed: p.ingredients_parsed },
-          ])
-          setInputValue('')
-        }
+      const p = await fetchProductByBarcode(inputValue.trim())
+      if (!p.found) {
+        setAddError('Product not found for that barcode.')
       } else {
-        const res = await searchProducts(inputValue.trim())
-        const first = res.results[0]
-        if (!first) {
-          setAddError('No products matched that search.')
-        } else {
-          setProducts((prev) => [
-            ...prev,
-            { name: first.name ?? `Product ${first.barcode}`, brand: first.brand, slot: addSlot, ingredients_parsed: first.ingredients_parsed },
-          ])
-          setInputValue('')
-        }
+        await addOne(p.name ?? `Product ${p.barcode}`, p.brand, p.ingredients_parsed)
+        setInputValue('')
       }
     } catch (err: unknown) {
       setAddError(err instanceof Error ? err.message : 'Something went wrong')
@@ -117,9 +97,36 @@ export function Routine() {
     }
   }
 
-  const removeProduct = (idx: number) => {
-    setProducts((prev) => prev.filter((_, i) => i !== idx))
+  const handleSearchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!inputValue.trim()) return
+    setBusy(true)
+    setAddError(null)
+    setSearchResults([])
+    try {
+      const res = await searchProducts(inputValue.trim())
+      if (res.results.length === 0) {
+        setAddError('No products matched that search.')
+      } else {
+        setSearchResults(res.results.slice(0, 6))
+      }
+    } catch (err: unknown) {
+      setAddError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const pickSearchResult = async (p: ProductResult) => {
+    await addOne(p.name ?? `Product ${p.barcode}`, p.brand, p.ingredients_parsed)
+    setSearchResults([])
+    setInputValue('')
+  }
+
+  const removeProduct = async (id: string) => {
+    setProducts((prev) => prev.filter((p) => p.id !== id))
     setResult(null)
+    await removeRoutineItem(id)
   }
 
   const runCheck = async () => {
@@ -134,8 +141,8 @@ export function Routine() {
     }
   }
 
-  const amProducts = products.map((p, i) => ({ ...p, idx: i })).filter((p) => p.slot === 'am')
-  const pmProducts = products.map((p, i) => ({ ...p, idx: i })).filter((p) => p.slot === 'pm')
+  const amProducts = products.filter((p) => p.slot === 'am')
+  const pmProducts = products.filter((p) => p.slot === 'pm')
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-10">
@@ -162,14 +169,14 @@ export function Routine() {
           {(['barcode', 'search'] as const).map((mode) => (
             <button
               key={mode}
-              onClick={() => { setAddMode(mode); setInputValue('') }}
+              onClick={() => { setAddMode(mode); setInputValue(''); setSearchResults([]); setAddError(null) }}
               className={`text-xs tracking-widest uppercase px-4 py-2 border ${addMode === mode ? 'btn-primary' : 'btn-ghost'}`}
             >
               {mode === 'barcode' ? 'By barcode' : 'By name'}
             </button>
           ))}
         </div>
-        <form onSubmit={addProduct} className="flex gap-3">
+        <form onSubmit={addMode === 'barcode' ? handleBarcodeSubmit : handleSearchSubmit} className="flex gap-3">
           <input
             type="text"
             value={inputValue}
@@ -178,10 +185,34 @@ export function Routine() {
             className="input flex-1"
           />
           <button type="submit" disabled={!inputValue.trim() || busy} className="btn-primary">
-            {busy ? 'Adding…' : 'Add'}
+            {busy ? '…' : addMode === 'barcode' ? 'Add' : 'Search'}
           </button>
         </form>
         {addError && <p className="text-xs text-red-700">{addError}</p>}
+
+        {/* Pick which product to add — this is what was missing before */}
+        {addMode === 'search' && searchResults.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {searchResults.map((p) => (
+              <button
+                key={p.barcode}
+                onClick={() => pickSearchResult(p)}
+                className="flex items-center gap-3 p-2.5 text-left rounded-md transition-colors hover:opacity-90"
+                style={{ border: '1px solid var(--rim)', backgroundColor: 'var(--surface)' }}
+              >
+                {p.image_url ? (
+                  <img src={p.image_url} alt="" className="w-9 h-9 object-contain flex-shrink-0" />
+                ) : (
+                  <div className="w-9 h-9 flex-shrink-0" style={{ border: '1px solid var(--rim)' }} />
+                )}
+                <div className="min-w-0">
+                  <p className="text-[9px] tracking-widest uppercase" style={{ color: 'var(--secondary)' }}>{p.brand ?? 'Unknown'}</p>
+                  <p className="text-sm truncate" style={{ color: 'var(--fg)' }}>{p.name ?? 'Unnamed product'}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* AM / PM shelves */}
