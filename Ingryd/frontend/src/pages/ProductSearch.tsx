@@ -19,6 +19,7 @@ function AddToRoutineButtons({ product }: { product: ProductResult }) {
         ...current,
         {
           name: product.name ?? `Product ${product.barcode}`,
+          brand: product.brand,
           slot,
           ingredients_parsed: product.ingredients_parsed,
         },

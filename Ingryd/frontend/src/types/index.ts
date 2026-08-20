@@ -79,6 +79,7 @@ export interface SkinProfile {
 
 export interface RoutineProductInput {
   name: string
+  brand?: string
   slot: 'am' | 'pm'
   ingredients_parsed: string[]
 }

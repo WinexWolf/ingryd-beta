@@ -1,16 +1,52 @@
 import { useEffect, useState } from 'react'
-import { Sun, Moon } from 'lucide-react'
+import { Sun, Moon, X } from 'lucide-react'
 import { fetchProductByBarcode, searchProducts, checkRoutine } from '../services/api'
 import { getRoutine, saveRoutine } from '../services/history'
+import { BottleIcon } from '../components/routine/BottleIcon'
 import type { RoutineProductInput, RoutineCheckResponse } from '../types'
 
-function ProductRow({ product, onRemove }: { product: RoutineProductInput; onRemove: () => void }) {
+function ShelfCard({ product, index, onRemove }: { product: RoutineProductInput; index: number; onRemove: () => void }) {
+  const color = index % 2 === 0 ? 'var(--moss)' : 'var(--secondary)'
   return (
-    <div className="flex items-center justify-between p-4" style={{ border: '1px solid var(--rim)', backgroundColor: 'var(--surface)' }}>
-      <span className="text-sm" style={{ color: 'var(--fg)' }}>{product.name}</span>
-      <button onClick={onRemove} className="text-xs uppercase tracking-widest" style={{ color: 'var(--muted)' }}>
-        Remove
-      </button>
+    <div className="text-center flex-shrink-0" style={{ width: 78 }}>
+      <BottleIcon name={product.name} color={color} />
+      <div
+        className="relative mt-2 rounded-md p-1.5"
+        style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--rim)' }}
+      >
+        <button
+          onClick={onRemove}
+          aria-label={`Remove ${product.name}`}
+          className="absolute -top-1.5 -right-1.5 rounded-full p-0.5"
+          style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--rim)', color: 'var(--muted)' }}
+        >
+          <X size={10} />
+        </button>
+        {product.brand && (
+          <p className="text-[11px] font-semibold leading-tight" style={{ color: 'var(--fg)' }}>{product.brand}</p>
+        )}
+        <p className="text-[10px] leading-tight mt-0.5" style={{ color: 'var(--muted)' }}>{product.name}</p>
+      </div>
+    </div>
+  )
+}
+
+function Shelf({ products, onRemove }: { products: (RoutineProductInput & { idx: number })[]; onRemove: (idx: number) => void }) {
+  if (products.length === 0) {
+    return (
+      <div className="relative rounded-lg p-6" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--rim)' }}>
+        <p className="text-xs" style={{ color: 'var(--muted)' }}>No products added yet.</p>
+      </div>
+    )
+  }
+  return (
+    <div className="relative rounded-lg pt-5 px-4 pb-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--rim)' }}>
+      <div className="flex gap-4 items-end overflow-x-auto pb-2">
+        {products.map((p, i) => (
+          <ShelfCard key={p.idx} product={p} index={i} onRemove={() => onRemove(p.idx)} />
+        ))}
+      </div>
+      <div className="h-[3px] rounded mt-1" style={{ backgroundColor: 'var(--rim)' }} />
     </div>
   )
 }
@@ -57,7 +93,7 @@ export function Routine() {
         } else {
           setProducts((prev) => [
             ...prev,
-            { name: p.name ?? `Product ${p.barcode}`, slot: addSlot, ingredients_parsed: p.ingredients_parsed },
+            { name: p.name ?? `Product ${p.barcode}`, brand: p.brand, slot: addSlot, ingredients_parsed: p.ingredients_parsed },
           ])
           setInputValue('')
         }
@@ -69,7 +105,7 @@ export function Routine() {
         } else {
           setProducts((prev) => [
             ...prev,
-            { name: first.name ?? `Product ${first.barcode}`, slot: addSlot, ingredients_parsed: first.ingredients_parsed },
+            { name: first.name ?? `Product ${first.barcode}`, brand: first.brand, slot: addSlot, ingredients_parsed: first.ingredients_parsed },
           ])
           setInputValue('')
         }
@@ -148,29 +184,19 @@ export function Routine() {
         {addError && <p className="text-xs text-red-700">{addError}</p>}
       </div>
 
-      {/* AM / PM lists */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      {/* AM / PM shelves */}
+      <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-3">
           <p className="flex items-center gap-2 text-[10px] tracking-widest uppercase" style={{ color: 'var(--secondary)' }}>
             <Sun size={14} /> Morning · {amProducts.length}
           </p>
-          {amProducts.length === 0 && (
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>No products added yet.</p>
-          )}
-          {amProducts.map((p) => (
-            <ProductRow key={p.idx} product={p} onRemove={() => removeProduct(p.idx)} />
-          ))}
+          <Shelf products={amProducts} onRemove={removeProduct} />
         </div>
         <div className="flex flex-col gap-3">
-          <p className="flex items-center gap-2 text-[10px] tracking-widest uppercase" style={{ color: 'var(--secondary)' }}>
+          <p className="flex items-center gap-2 text-[10px] tracking-widest uppercase" style={{ color: 'var(--moss)' }}>
             <Moon size={14} /> Evening · {pmProducts.length}
           </p>
-          {pmProducts.length === 0 && (
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>No products added yet.</p>
-          )}
-          {pmProducts.map((p) => (
-            <ProductRow key={p.idx} product={p} onRemove={() => removeProduct(p.idx)} />
-          ))}
+          <Shelf products={pmProducts} onRemove={removeProduct} />
         </div>
       </div>
 

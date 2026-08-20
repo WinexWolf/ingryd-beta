@@ -82,7 +82,7 @@ export async function getRoutine(): Promise<RoutineProductInput[]> {
 
   const { data, error } = await supabase
     .from('routine_items')
-    .select('slot, product_name, ingredients_parsed')
+    .select('slot, product_name, brand, ingredients_parsed')
     .eq('user_id', userId)
     .order('created_at', { ascending: true })
 
@@ -90,6 +90,7 @@ export async function getRoutine(): Promise<RoutineProductInput[]> {
 
   return data.map((row) => ({
     name: row.product_name,
+    brand: row.brand ?? undefined,
     slot: row.slot as 'am' | 'pm',
     ingredients_parsed: (row.ingredients_parsed as string[]) ?? [],
   }))
@@ -112,6 +113,7 @@ export async function saveRoutine(products: RoutineProductInput[]): Promise<void
       user_id: userId,
       slot: p.slot,
       product_name: p.name,
+      brand: p.brand ?? null,
       ingredients_parsed: p.ingredients_parsed,
     }))
   )
