@@ -7,8 +7,19 @@ from app.services.open_beauty_facts import lookup_barcode as lookup_obf
 from app.services.barcodenest import lookup_barcodenest
 
 
+def _extract_ingredient_name(item) -> str | None:
+    """Confirmed shape (verified against a real product_full row): each item
+    is {"position": int, "inci_name": str, "ingredient_id": uuid}."""
+    if isinstance(item, dict):
+        return item.get("inci_name")
+    if isinstance(item, str):  # defensive fallback, shouldn't happen in practice
+        return item
+    return None
+
+
 def _row_to_result(row: dict, profile: SkinProfile | None) -> ProductResult:
-    ingredients_parsed = row.get("ingredients_ordered") or []
+    raw_ingredients = row.get("ingredients_ordered") or []
+    ingredients_parsed = [n for n in (_extract_ingredient_name(i) for i in raw_ingredients) if n]
     ingredients_text = ", ".join(ingredients_parsed)
     scored = score_ingredients(ingredients_parsed, profile) if ingredients_parsed else None
     return ProductResult(
@@ -28,14 +39,20 @@ def _row_to_result(row: dict, profile: SkinProfile | None) -> ProductResult:
 async def lookup_in_catalog(gtin: str, profile: SkinProfile | None = None) -> ProductResult | None:
     """Primary lookup: select * from product_full where gtin = $1
 
-    Returns None on a cache miss (not in the ~2,995-product catalog yet) —
-    caller is responsible for falling back to OBF/BarcodeNest.
+    Returns None both on a genuine cache miss AND on any Supabase-side error
+    (bad credentials, RLS denial, network issue) — either way, the caller
+    falls back to OBF/BarcodeNest rather than the request 500ing outright.
     """
     supabase = get_supabase()
     if supabase is None:
         return None
 
-    response = supabase.table("product_full").select("*").eq("gtin", gtin).execute()
+    try:
+        response = supabase.table("product_full").select("*").eq("gtin", gtin).execute()
+    except Exception as e:
+        print(f"[catalog] Supabase lookup_in_catalog failed: {e}")
+        return None
+
     rows = response.data
     if not rows:
         return None
@@ -278,13 +295,18 @@ async def catalog_search_products(query: str, profile: SkinProfile | None = None
     if supabase is None:
         return ProductSearchResponse(query=query, count=0, results=[])
 
-    response = (
-        supabase.table("product_full")
-        .select("*")
-        .or_(f"product_name.ilike.%{query}%,brand.ilike.%{query}%")
-        .limit(page_size)
-        .execute()
-    )
+    try:
+        response = (
+            supabase.table("product_full")
+            .select("*")
+            .or_(f"product_name.ilike.%{query}%,brand.ilike.%{query}%")
+            .limit(page_size)
+            .execute()
+        )
+    except Exception as e:
+        print(f"[catalog] Supabase search failed: {e}")
+        return ProductSearchResponse(query=query, count=0, results=[])
+
     results = [_row_to_result(row, profile) for row in response.data]
     return ProductSearchResponse(query=query, count=len(results), results=results)
 
@@ -298,12 +320,16 @@ async def catalog_browse_products(profile: SkinProfile | None = None, page_size:
     if supabase is None:
         return ProductSearchResponse(query="", count=0, results=[])
 
-    response = (
-        supabase.table("product_full")
-        .select("*")
-        .order("product_name")
-        .limit(page_size)
-        .execute()
-    )
+    try:
+        response = (
+            supabase.table("product_full")
+            .select("*")
+            .order("product_name")
+            .limit(page_size)
+            .execute()
+        )
+    except Exception as e:
+        print(f"[catalog] Supabase browse failed: {e}")
+        return ProductSearchResponse(query="", count=0, results=[])
     results = [_row_to_result(row, profile) for row in response.data]
     return ProductSearchResponse(query="", count=len(results), results=results)
