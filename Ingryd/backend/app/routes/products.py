@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from app.services.open_beauty_facts import lookup_barcode
-from app.services.product_search import search_products, browse_products
+from app.services.catalog import lookup_barcode_with_fallback, catalog_search_products, catalog_browse_products
 from app.models.product import ProductResult, ProductSearchResponse, SkinProfile
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -30,7 +29,7 @@ async def get_product_by_barcode(
     if not barcode.isdigit() or len(barcode) not in (8, 12, 13, 14):
         raise HTTPException(status_code=400, detail="Invalid barcode format. Must be EAN-8, UPC-A, or EAN-13.")
     profile = _build_profile(skin_type, concerns, sensitivities)
-    result = await lookup_barcode(barcode, profile)
+    result = await lookup_barcode_with_fallback(barcode, profile)
     return result
 
 
@@ -42,7 +41,7 @@ async def search(
     sensitivities: str | None = Query(None, description="Comma-separated sensitivities"),
 ):
     profile = _build_profile(skin_type, concerns, sensitivities)
-    return await search_products(q, profile)
+    return await catalog_search_products(q, profile)
 
 
 @router.get("/browse", response_model=ProductSearchResponse)
@@ -52,4 +51,4 @@ async def browse(
     sensitivities: str | None = Query(None, description="Comma-separated sensitivities"),
 ):
     profile = _build_profile(skin_type, concerns, sensitivities)
-    return await browse_products(profile=profile)
+    return await catalog_browse_products(profile=profile)
