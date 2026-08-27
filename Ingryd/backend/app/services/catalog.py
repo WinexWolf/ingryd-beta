@@ -19,11 +19,13 @@ def _extract_ingredient_name(item) -> str | None:
 
 def _row_to_result(row: dict, profile: SkinProfile | None) -> ProductResult:
     raw_ingredients = row.get("ingredients_ordered") or []
+    if not isinstance(raw_ingredients, list):
+        raw_ingredients = []
     ingredients_parsed = [n for n in (_extract_ingredient_name(i) for i in raw_ingredients) if n]
     ingredients_text = ", ".join(ingredients_parsed)
     scored = score_ingredients(ingredients_parsed, profile) if ingredients_parsed else None
     return ProductResult(
-        barcode=row.get("gtin", ""),
+        barcode=row.get("gtin") or "",
         name=row.get("product_name"),
         brand=row.get("brand"),
         categories=row.get("category"),
@@ -34,6 +36,18 @@ def _row_to_result(row: dict, profile: SkinProfile | None) -> ProductResult:
         score=scored,
         found=True,
     )
+
+
+def _row_to_result_safe(row: dict, profile: SkinProfile | None) -> ProductResult | None:
+    """Same as _row_to_result, but never raises — one malformed row (bad
+    data, an unexpected null, a scoring edge case) shouldn't take down an
+    entire search/browse response for every user. Returns None on failure
+    so the caller can just skip that row and keep the rest."""
+    try:
+        return _row_to_result(row, profile)
+    except Exception as e:
+        print(f"[catalog] Skipping unparseable row (gtin={row.get('gtin')}): {e}")
+        return None
 
 
 async def lookup_in_catalog(gtin: str, profile: SkinProfile | None = None) -> ProductResult | None:
@@ -58,7 +72,7 @@ async def lookup_in_catalog(gtin: str, profile: SkinProfile | None = None) -> Pr
         return None
 
     row = rows[0]
-    return _row_to_result(row, profile)
+    return _row_to_result_safe(row, profile)
 
 
 def normalize_and_gate(
@@ -307,7 +321,7 @@ async def catalog_search_products(query: str, profile: SkinProfile | None = None
         print(f"[catalog] Supabase search failed: {e}")
         return ProductSearchResponse(query=query, count=0, results=[])
 
-    results = [_row_to_result(row, profile) for row in response.data]
+    results = [r for r in (_row_to_result_safe(row, profile) for row in response.data) if r is not None]
     return ProductSearchResponse(query=query, count=len(results), results=results)
 
 
@@ -331,5 +345,5 @@ async def catalog_browse_products(profile: SkinProfile | None = None, page_size:
     except Exception as e:
         print(f"[catalog] Supabase browse failed: {e}")
         return ProductSearchResponse(query="", count=0, results=[])
-    results = [_row_to_result(row, profile) for row in response.data]
+    results = [r for r in (_row_to_result_safe(row, profile) for row in response.data) if r is not None]
     return ProductSearchResponse(query="", count=len(results), results=results)
