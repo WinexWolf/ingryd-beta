@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../services/AuthContext'
 
-type Mode = 'login' | 'signup'
+type Mode = 'login' | 'signup' | 'forgot'
 
 export function Auth() {
   const navigate = useNavigate()
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, sendPasswordReset } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -18,6 +18,17 @@ export function Auth() {
     e.preventDefault()
     setError(null)
     setBusy(true)
+
+    if (mode === 'forgot') {
+      const result = await sendPasswordReset(email)
+      setBusy(false)
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+      setError('Check your email for a password reset link.')
+      return
+    }
 
     const result = mode === 'login'
       ? await signIn(email, password)
@@ -41,14 +52,16 @@ export function Auth() {
     navigate('/')
   }
 
+  const isNotice = error && (error.startsWith('Check your email'))
+
   return (
     <div className="max-w-sm mx-auto flex flex-col gap-8 pt-10">
       <div className="pb-6" style={{ borderBottom: '1px solid var(--rim)' }}>
         <p className="text-[10px] tracking-[0.4em] uppercase mb-2" style={{ color: 'var(--muted)' }}>
-          {mode === 'login' ? 'Welcome back' : 'Create your account'}
+          {mode === 'login' ? 'Welcome back' : mode === 'signup' ? 'Create your account' : 'Reset your password'}
         </p>
         <h1 className="font-display text-4xl" style={{ color: 'var(--fg)' }}>
-          {mode === 'login' ? 'Log In' : 'Sign Up'}
+          {mode === 'login' ? 'Log In' : mode === 'signup' ? 'Sign Up' : 'Forgot Password'}
         </h1>
       </div>
 
@@ -71,33 +84,47 @@ export function Auth() {
           required
           className="input"
         />
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          required
-          minLength={6}
-          className="input"
-        />
+        {mode !== 'forgot' && (
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            required
+            minLength={6}
+            className="input"
+          />
+        )}
 
         {error && (
-          <p className="text-xs" style={{ color: error.startsWith('Check your email') ? 'var(--moss)' : '#b91c1c' }}>
+          <p className="text-xs" style={{ color: isNotice ? 'var(--moss)' : '#b91c1c' }}>
             {error}
           </p>
         )}
 
         <button type="submit" disabled={busy} className="btn-primary">
-          {busy ? 'Please wait…' : mode === 'login' ? 'Log In' : 'Sign Up'}
+          {busy ? 'Please wait…' : mode === 'login' ? 'Log In' : mode === 'signup' ? 'Sign Up' : 'Send Reset Link'}
         </button>
       </form>
 
+      {mode === 'login' && (
+        <button
+          onClick={() => { setMode('forgot'); setError(null) }}
+          className="text-xs text-center -mt-4"
+          style={{ color: 'var(--muted)' }}
+        >
+          Forgot your password?
+        </button>
+      )}
+
       <button
-        onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(null) }}
+        onClick={() => { setMode(mode === 'signup' ? 'login' : mode === 'forgot' ? 'login' : 'signup'); setError(null) }}
         className="text-sm text-center"
         style={{ color: 'var(--secondary)' }}
       >
-        {mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
+        {mode === 'signup' ? 'Already have an account? Log in'
+          : mode === 'forgot' ? 'Back to log in'
+          : "Don't have an account? Sign up"}
       </button>
     </div>
   )
