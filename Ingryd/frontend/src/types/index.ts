@@ -59,6 +59,9 @@ export interface ProductResult {
 export interface ProductSearchResponse {
   query: string
   count: number
+  total_count: number
+  page: number
+  page_size: number
   results: ProductResult[]
 }
 

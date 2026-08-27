@@ -36,19 +36,25 @@ async def get_product_by_barcode(
 @router.get("/search", response_model=ProductSearchResponse)
 async def search(
     q: str = Query(..., min_length=2, description="Product name or brand to search for"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=100),
+    sort: str = Query("name", pattern="^(name|score)$"),
     skin_type: str | None = Query(None),
     concerns: str | None = Query(None, description="Comma-separated concerns"),
     sensitivities: str | None = Query(None, description="Comma-separated sensitivities"),
 ):
     profile = _build_profile(skin_type, concerns, sensitivities)
-    return await catalog_search_products(q, profile)
+    return await catalog_search_products(q, profile, page=page, page_size=page_size, sort=sort)
 
 
 @router.get("/browse", response_model=ProductSearchResponse)
 async def browse(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(30, ge=1, le=100),
+    sort: str = Query("name", pattern="^(name|score)$"),
     skin_type: str | None = Query(None),
     concerns: str | None = Query(None, description="Comma-separated concerns"),
     sensitivities: str | None = Query(None, description="Comma-separated sensitivities"),
 ):
     profile = _build_profile(skin_type, concerns, sensitivities)
-    return await catalog_browse_products(profile=profile)
+    return await catalog_browse_products(profile=profile, page=page, page_size=page_size, sort=sort)

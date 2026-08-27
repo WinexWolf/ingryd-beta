@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Sun, Moon, Check } from 'lucide-react'
+import { Sun, Moon, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { searchProducts, browseProducts } from '../services/api'
+import type { SortMode } from '../services/api'
 import { addScanToHistory, addRoutineItem } from '../services/history'
 import { ScanResult } from '../components/scanner/ScanResult'
 import type { ProductResult, GradeKey } from '../types'
 import { GRADE_CONFIG } from '../types'
 
 type PageState = 'loading' | 'browsing' | 'results' | 'detail' | 'error'
+const PAGE_SIZE = 20
 
 function AddToRoutineButtons({ product }: { product: ProductResult }) {
   const [added, setAdded] = useState<'am' | 'pm' | null>(null)
@@ -54,45 +56,76 @@ function AddToRoutineButtons({ product }: { product: ProductResult }) {
   )
 }
 
+function ProductThumb({ product }: { product: ProductResult }) {
+  if (product.image_url) {
+    return <img src={product.image_url} alt={product.name ?? ''} className="w-14 h-14 object-contain flex-shrink-0 rounded-md" style={{ border: '1px solid var(--rim)' }} />
+  }
+  const initial = (product.brand?.[0] ?? product.name?.[0] ?? '?').toUpperCase()
+  return (
+    <div
+      className="w-14 h-14 flex-shrink-0 flex items-center justify-center rounded-md font-display text-xl"
+      style={{ border: '1px solid var(--rim)', backgroundColor: 'var(--bg)', color: 'var(--secondary)' }}
+    >
+      {initial}
+    </div>
+  )
+}
+
 export function ProductSearch() {
   const [query, setQuery] = useState('')
   const [pageState, setPageState] = useState<PageState>('loading')
   const [results, setResults] = useState<ProductResult[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(1)
+  const [sort, setSort] = useState<SortMode>('name')
   const [selected, setSelected] = useState<ProductResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [browseFailed, setBrowseFailed] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    browseProducts()
-      .then((res) => {
-        if (cancelled) return
-        setResults(res.results)
-        setBrowseFailed(false)
-        setPageState('browsing')
-      })
-      .catch(() => {
-        if (cancelled) return
-        setPageState('browsing')
-        setResults([])
-        setBrowseFailed(true)
-      })
-    return () => { cancelled = true }
-  }, [])
-
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!query.trim()) return
+  const loadPage = (targetPage: number, targetSort: SortMode, activeQuery: string) => {
     setPageState('loading')
     setError(null)
-    try {
-      const res = await searchProducts(query.trim())
-      setResults(res.results)
-      setPageState('results')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
-      setPageState('error')
-    }
+    const request = activeQuery.trim()
+      ? searchProducts(activeQuery.trim(), targetPage, PAGE_SIZE, targetSort)
+      : browseProducts(targetPage, PAGE_SIZE, targetSort)
+
+    request
+      .then((res) => {
+        setResults(res.results)
+        setTotalCount(res.total_count)
+        setPage(res.page)
+        setBrowseFailed(false)
+        setPageState(activeQuery.trim() ? 'results' : 'browsing')
+      })
+      .catch((err: unknown) => {
+        if (!activeQuery.trim()) {
+          setBrowseFailed(true)
+          setPageState('browsing')
+          setResults([])
+          return
+        }
+        setError(err instanceof Error ? err.message : 'Something went wrong')
+        setPageState('error')
+      })
+  }
+
+  useEffect(() => {
+    loadPage(1, sort, '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    loadPage(1, sort, query)
+  }
+
+  const changeSort = (newSort: SortMode) => {
+    setSort(newSort)
+    loadPage(1, newSort, query)
+  }
+
+  const goToPage = (newPage: number) => {
+    loadPage(newPage, sort, query)
   }
 
   const openProduct = (product: ProductResult) => {
@@ -107,6 +140,9 @@ export function ProductSearch() {
   }
 
   const showList = pageState === 'browsing' || pageState === 'results'
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const rangeStart = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+  const rangeEnd = Math.min(page * PAGE_SIZE, totalCount)
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-10">
@@ -136,7 +172,7 @@ export function ProductSearch() {
             className="w-8 h-8 border-2 animate-spin"
             style={{ borderColor: 'var(--rim)', borderTopColor: 'var(--primary)' }}
           />
-          <p className="text-sm tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Searching Open Beauty Facts</p>
+          <p className="text-sm tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Loading</p>
         </div>
       )}
 
@@ -149,11 +185,25 @@ export function ProductSearch() {
 
       {showList && (
         <div className="flex flex-col gap-4">
-          <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>
-            {pageState === 'browsing'
-              ? `Browsing A–Z · ${results.length} products`
-              : `${results.length} result${results.length !== 1 ? 's' : ''} for "${query}"`}
-          </p>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>
+              {pageState === 'browsing'
+                ? totalCount > 0 ? `Showing ${rangeStart}–${rangeEnd} of ${totalCount.toLocaleString()} products` : 'Browsing'
+                : `${totalCount} result${totalCount !== 1 ? 's' : ''} for "${query}"`}
+            </p>
+            <div className="flex gap-2">
+              {(['name', 'score'] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => changeSort(s)}
+                  className={`text-[10px] tracking-widest uppercase px-3 py-1.5 border rounded-full ${sort === s ? 'btn-primary' : 'btn-ghost'}`}
+                >
+                  {s === 'name' ? 'A–Z' : 'Top Rated'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {results.length === 0 && (
             <div className="p-10 text-center" style={{ border: '1px solid var(--rim)' }}>
               <p className="text-sm" style={{ color: 'var(--muted)' }}>
@@ -165,24 +215,19 @@ export function ProductSearch() {
               </p>
             </div>
           )}
+
           {results.map((product) => {
             const grade = (product.score?.fit_grade ?? product.score?.grade) as GradeKey | undefined
             const displayScore = product.score?.fit_score ?? product.score?.score
             const config = grade ? GRADE_CONFIG[grade] : null
             return (
               <button
-                key={product.barcode}
+                key={product.barcode || product.name}
                 onClick={() => openProduct(product)}
                 className="flex items-center gap-4 p-4 text-left transition-colors duration-150 hover:opacity-90"
                 style={{ border: '1px solid var(--rim)', backgroundColor: 'var(--surface)' }}
               >
-                {product.image_url ? (
-                  <img src={product.image_url} alt={product.name ?? ''} className="w-14 h-14 object-contain flex-shrink-0" />
-                ) : (
-                  <div className="w-14 h-14 flex-shrink-0 flex items-center justify-center text-xs" style={{ border: '1px solid var(--rim)', color: 'var(--muted)' }}>
-                    N/A
-                  </div>
-                )}
+                <ProductThumb product={product} />
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: 'var(--secondary)' }}>
                     {product.brand ?? 'Unknown brand'}
@@ -211,6 +256,30 @@ export function ProductSearch() {
               </button>
             )
           })}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-4 pt-2">
+              <button
+                onClick={() => goToPage(page - 1)}
+                disabled={page <= 1}
+                className="p-2 rounded-full disabled:opacity-30"
+                style={{ border: '1px solid var(--rim)', color: 'var(--fg)' }}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-xs tracking-widest" style={{ color: 'var(--muted)' }}>
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => goToPage(page + 1)}
+                disabled={page >= totalPages}
+                className="p-2 rounded-full disabled:opacity-30"
+                style={{ border: '1px solid var(--rim)', color: 'var(--fg)' }}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
       )}
 

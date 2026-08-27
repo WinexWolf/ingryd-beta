@@ -197,7 +197,7 @@ export function ScanResult({ product, onReset }: Props) {
       {product.ingredients_text && (
         <div className="p-6" style={{ border: '1px solid var(--rim)' }}>
           <SectionHeader label="Full Ingredient List" />
-          <p className="text-sm leading-relaxed font-mono" style={{ color: 'var(--muted)' }}>
+          <p className="text-sm leading-relaxed font-sans" style={{ color: 'var(--muted)' }}>
             {product.ingredients_text}
           </p>
         </div>

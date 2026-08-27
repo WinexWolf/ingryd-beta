@@ -50,5 +50,8 @@ class ProductResult(BaseModel):
 
 class ProductSearchResponse(BaseModel):
     query: str
-    count: int
+    count: int  # number of results on this page
+    total_count: int  # total matching products across all pages
+    page: int
+    page_size: int
     results: list[ProductResult]

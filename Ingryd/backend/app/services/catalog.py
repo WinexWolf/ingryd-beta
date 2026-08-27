@@ -302,48 +302,114 @@ async def lookup_barcode_with_fallback(gtin: str, profile: SkinProfile | None = 
     )
 
 
-async def catalog_search_products(query: str, profile: SkinProfile | None = None, page_size: int = 12) -> ProductSearchResponse:
+async def catalog_search_products(
+    query: str,
+    profile: SkinProfile | None = None,
+    page: int = 1,
+    page_size: int = 12,
+    sort: str = "name",
+) -> ProductSearchResponse:
     """Search the Supabase catalog by product name or brand (case-insensitive
-    partial match on either field)."""
+    partial match on either field). sort='name' paginates at the database
+    level (fast, exact total count from postgrest). sort='score' has to
+    fetch all matches and score them in Python first, since score depends on
+    the (optionally personalized) scoring engine rather than being a stored
+    column — fine at this catalog's size (~3k products).
+    """
     supabase = get_supabase()
+    empty = lambda: ProductSearchResponse(query=query, count=0, total_count=0, page=page, page_size=page_size, results=[])
     if supabase is None:
-        return ProductSearchResponse(query=query, count=0, results=[])
+        return empty()
 
+    filter_str = f"product_name.ilike.%{query}%,brand.ilike.%{query}%"
+
+    if sort == "score":
+        try:
+            response = supabase.table("product_full").select("*").or_(filter_str).limit(3500).execute()
+        except Exception as e:
+            print(f"[catalog] Supabase search failed: {e}")
+            return empty()
+
+        all_results = [r for r in (_row_to_result_safe(row, profile) for row in response.data) if r is not None]
+        all_results.sort(key=_sort_key, reverse=True)
+        total = len(all_results)
+        start = (page - 1) * page_size
+        page_results = all_results[start:start + page_size]
+        return ProductSearchResponse(query=query, count=len(page_results), total_count=total, page=page, page_size=page_size, results=page_results)
+
+    start = (page - 1) * page_size
+    end = start + page_size - 1
     try:
         response = (
             supabase.table("product_full")
-            .select("*")
-            .or_(f"product_name.ilike.%{query}%,brand.ilike.%{query}%")
-            .limit(page_size)
+            .select("*", count="exact")
+            .or_(filter_str)
+            .order("product_name")
+            .range(start, end)
             .execute()
         )
     except Exception as e:
         print(f"[catalog] Supabase search failed: {e}")
-        return ProductSearchResponse(query=query, count=0, results=[])
+        return empty()
 
     results = [r for r in (_row_to_result_safe(row, profile) for row in response.data) if r is not None]
-    return ProductSearchResponse(query=query, count=len(results), results=results)
+    total = response.count if response.count is not None else len(results)
+    return ProductSearchResponse(query=query, count=len(results), total_count=total, page=page, page_size=page_size, results=results)
 
 
-async def catalog_browse_products(profile: SkinProfile | None = None, page_size: int = 30) -> ProductSearchResponse:
-    """Alphabetically-sorted product list for the Search page's default view.
-    No blank-entry filtering needed here (unlike the old OBF-based version) —
-    every row in this catalog already passed the quality gate on the way in.
+def _sort_key(r: ProductResult):
+    if r.score is None:
+        return -1
+    return r.score.fit_score if r.score.fit_score is not None else r.score.score
+
+
+async def catalog_browse_products(
+    profile: SkinProfile | None = None,
+    page: int = 1,
+    page_size: int = 30,
+    sort: str = "name",
+) -> ProductSearchResponse:
+    """Product list for the Search page's default view. sort='name' (default)
+    paginates at the database level with an exact total count. sort='score'
+    fetches the whole catalog, scores each product, sorts, then slices the
+    requested page — score isn't a stored column (and Fit Score depends on
+    the viewer's own profile), so it can't be sorted at the DB level, but the
+    catalog is small enough (~3k products) that doing this in Python per
+    request is fine.
     """
     supabase = get_supabase()
+    empty = lambda: ProductSearchResponse(query="", count=0, total_count=0, page=page, page_size=page_size, results=[])
     if supabase is None:
-        return ProductSearchResponse(query="", count=0, results=[])
+        return empty()
 
+    if sort == "score":
+        try:
+            response = supabase.table("product_full").select("*").limit(3500).execute()
+        except Exception as e:
+            print(f"[catalog] Supabase browse failed: {e}")
+            return empty()
+
+        all_results = [r for r in (_row_to_result_safe(row, profile) for row in response.data) if r is not None]
+        all_results.sort(key=_sort_key, reverse=True)
+        total = len(all_results)
+        start = (page - 1) * page_size
+        page_results = all_results[start:start + page_size]
+        return ProductSearchResponse(query="", count=len(page_results), total_count=total, page=page, page_size=page_size, results=page_results)
+
+    start = (page - 1) * page_size
+    end = start + page_size - 1
     try:
         response = (
             supabase.table("product_full")
-            .select("*")
+            .select("*", count="exact")
             .order("product_name")
-            .limit(page_size)
+            .range(start, end)
             .execute()
         )
     except Exception as e:
         print(f"[catalog] Supabase browse failed: {e}")
-        return ProductSearchResponse(query="", count=0, results=[])
+        return empty()
+
     results = [r for r in (_row_to_result_safe(row, profile) for row in response.data) if r is not None]
-    return ProductSearchResponse(query="", count=len(results), results=results)
+    total = response.count if response.count is not None else len(results)
+    return ProductSearchResponse(query="", count=len(results), total_count=total, page=page, page_size=page_size, results=results)

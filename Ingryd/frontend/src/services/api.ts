@@ -23,15 +23,17 @@ export async function fetchProductByBarcode(barcode: string): Promise<ProductRes
   return handle<ProductResult>(res)
 }
 
-export async function searchProducts(query: string): Promise<ProductSearchResponse> {
+export type SortMode = 'name' | 'score'
+
+export async function searchProducts(query: string, page = 1, pageSize = 12, sort: SortMode = 'name'): Promise<ProductSearchResponse> {
   const profileQs = profileToQueryParams(await getProfile())
-  const res = await fetch(`${BASE}/products/search?q=${encodeURIComponent(query)}${profileQs}`)
+  const res = await fetch(`${BASE}/products/search?q=${encodeURIComponent(query)}&page=${page}&page_size=${pageSize}&sort=${sort}${profileQs}`)
   return handle<ProductSearchResponse>(res)
 }
 
-export async function browseProducts(): Promise<ProductSearchResponse> {
+export async function browseProducts(page = 1, pageSize = 30, sort: SortMode = 'name'): Promise<ProductSearchResponse> {
   const profileQs = profileToQueryParams(await getProfile())
-  const res = await fetch(`${BASE}/products/browse?${profileQs.replace(/^&/, '')}`)
+  const res = await fetch(`${BASE}/products/browse?page=${page}&page_size=${pageSize}&sort=${sort}${profileQs}`)
   return handle<ProductSearchResponse>(res)
 }
 
