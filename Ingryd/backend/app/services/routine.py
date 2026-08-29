@@ -1,4 +1,5 @@
-from app.models.routine import RoutineProduct, RoutineConflict, RoutineCheckResponse
+from app.models.routine import RoutineProduct, RoutineConflict, RoutineCheckResponse, RedundantActive
+from app.services.order_analysis import detect_redundant_actives
 
 # ---------------------------------------------------------------------------
 # Known ingredient interaction rules.
@@ -94,9 +95,13 @@ def check_routine(products: list[RoutineProduct]) -> RoutineCheckResponse:
                             )
                         )
 
+    redundant_raw = detect_redundant_actives([{"name": p.name, "ingredients_parsed": p.ingredients_parsed} for p in products])
+    redundant_actives = [RedundantActive(**r) for r in redundant_raw]
+
     return RoutineCheckResponse(
         conflicts=conflicts,
         am_count=am_count,
         pm_count=pm_count,
         clean=len(conflicts) == 0,
+        redundant_actives=redundant_actives,
     )

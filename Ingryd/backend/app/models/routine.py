@@ -22,8 +22,16 @@ class RoutineCheckRequest(BaseModel):
     products: list[RoutineProduct]
 
 
+class RedundantActive(BaseModel):
+    active_family: str
+    product_count: int
+    products: list[str]
+    note: str
+
+
 class RoutineCheckResponse(BaseModel):
     conflicts: list[RoutineConflict]
     am_count: int
     pm_count: int
     clean: bool
+    redundant_actives: list[RedundantActive] = []

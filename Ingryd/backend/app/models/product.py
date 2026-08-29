@@ -30,6 +30,13 @@ class ProductScore(BaseModel):
     comedogenic: list[IngredientFlag] = []  # informational — does not affect score
     allergens: list[IngredientFlag] = []  # EU Annex III fragrance allergens — informational
     prohibited: list[IngredientFlag] = []  # substances banned outright in the EU — treated as high concern
+    ingredient_functions: dict[str, list[str]] = {}  # from INCI API enrichment, single-product lookups only
+    pregnancy_safe: Optional[bool] = None
+    pregnancy_concerns: list[str] = []
+    external_safety_score: Optional[int] = None
+    external_safety_source: Optional[str] = None
+    concentration_tiers: list[dict] = []  # order-aware position/tier estimate per ingredient
+    marketing_dose_flags: list[dict] = []  # hero ingredient buried too low to be effective
     total_ingredients: int
     flagged_count: int
     fit_score: Optional[int] = None       # personalized score, only present if a profile was supplied

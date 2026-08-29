@@ -5,6 +5,17 @@ from app.services.normalize import normalize_full_ingredients_text
 from app.services.quality_gate import is_skin_relevant, passes_quality_gate
 from app.services.open_beauty_facts import lookup_barcode as lookup_obf
 from app.services.barcodenest import lookup_barcodenest
+from app.services.inciapi import lookup_inciapi_by_barcode, analyze_inci_text, extract_functions_map, extract_pregnancy_safety
+from app.services.order_analysis import concentration_tiers, detect_marketing_dose
+
+
+def _attach_order_analysis(score, product_name: str | None, ingredients: list[str]) -> None:
+    """Mutates a ProductScore in place with position-based concentration
+    tiers and marketing-dose flags — pure logic, no external data needed."""
+    if score is None:
+        return
+    score.concentration_tiers = concentration_tiers(ingredients)
+    score.marketing_dose_flags = detect_marketing_dose(product_name, ingredients)
 
 
 def _extract_ingredient_name(item) -> str | None:
@@ -24,6 +35,7 @@ def _row_to_result(row: dict, profile: SkinProfile | None) -> ProductResult:
     ingredients_parsed = [n for n in (_extract_ingredient_name(i) for i in raw_ingredients) if n]
     ingredients_text = ", ".join(ingredients_parsed)
     scored = score_ingredients(ingredients_parsed, profile) if ingredients_parsed else None
+    _attach_order_analysis(scored, row.get("product_name"), ingredients_parsed)
     return ProductResult(
         barcode=row.get("gtin") or "",
         name=row.get("product_name"),
@@ -245,6 +257,37 @@ def write_back_to_catalog(
         return False
 
 
+async def _enrich_with_inciapi(result: ProductResult) -> None:
+    """Best-effort enrichment with function tags, pregnancy-safety, and a
+    second sourced safety score — mutates result.score in place. Never
+    raises: if INCI API is unavailable, misconfigured, or errors, the
+    result the user already has stays exactly as it was. Deliberately only
+    called on single-product lookups (never bulk search/browse) — INCI
+    API's free tier is 2,000 requests/month, and a single browse page can
+    return dozens of products.
+    """
+    if result.score is None:
+        return
+    try:
+        data = await lookup_inciapi_by_barcode(result.barcode)
+        if data is None and result.ingredients_parsed:
+            # Barcode not recognized by INCI API — fall back to analyzing
+            # the raw ingredient list we already have.
+            data = await analyze_inci_text(result.ingredients_parsed)
+        if data is None:
+            return
+
+        result.score.ingredient_functions = extract_functions_map(data)
+        pregnancy_safe, pregnancy_concerns = extract_pregnancy_safety(data)
+        result.score.pregnancy_safe = pregnancy_safe
+        result.score.pregnancy_concerns = pregnancy_concerns
+        if "overallSafetyScore" in data:
+            result.score.external_safety_score = data["overallSafetyScore"]
+            result.score.external_safety_source = "INCI API — based on EU CosIng, CIR, and published research"
+    except Exception as e:
+        print(f"[catalog] INCI API enrichment failed (non-fatal): {e}")
+
+
 async def lookup_barcode_with_fallback(gtin: str, profile: SkinProfile | None = None) -> ProductResult:
     """The full pipeline: Supabase catalog first (fast, trusted) -> OBF ->
     BarcodeNest -> normalize -> quality-gate -> write back -> return.
@@ -252,6 +295,7 @@ async def lookup_barcode_with_fallback(gtin: str, profile: SkinProfile | None = 
     # 1. Primary: Supabase catalog
     cached = await lookup_in_catalog(gtin, profile)
     if cached is not None:
+        await _enrich_with_inciapi(cached)
         return cached
 
     # 2. Fallback: OBF (called with no profile — we rescore after normalizing,
@@ -288,7 +332,8 @@ async def lookup_barcode_with_fallback(gtin: str, profile: SkinProfile | None = 
     write_back_to_catalog(gtin, brand, name, categories, normalized, ingredients_text)
 
     scored = score_ingredients(normalized, profile)
-    return ProductResult(
+    _attach_order_analysis(scored, name, normalized)
+    result = ProductResult(
         barcode=gtin,
         name=name,
         brand=brand,
@@ -300,6 +345,8 @@ async def lookup_barcode_with_fallback(gtin: str, profile: SkinProfile | None = 
         score=scored,
         found=True,
     )
+    await _enrich_with_inciapi(result)
+    return result
 
 
 async def catalog_search_products(
