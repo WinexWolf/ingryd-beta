@@ -1,4 +1,5 @@
 from app.models.product import IngredientFlag, ProductScore, SkinProfile, PersonalNote
+from app.services.allergens import match_allergen, match_prohibited
 
 # ---------------------------------------------------------------------------
 # Ingredient knowledge base
@@ -144,11 +145,15 @@ def score_ingredients(ingredients: list[str], profile: SkinProfile | None = None
     moderate: list[IngredientFlag] = []
     beneficial: list[IngredientFlag] = []
     comedogenic: list[IngredientFlag] = []
+    allergens: list[IngredientFlag] = []
+    prohibited: list[IngredientFlag] = []
 
     seen_high: set[str] = set()
     seen_moderate: set[str] = set()
     seen_beneficial: set[str] = set()
     seen_comedogenic: set[str] = set()
+    seen_allergens: set[str] = set()
+    seen_prohibited: set[str] = set()
 
     for ingredient in ingredients:
         # Comedogenic check runs independently of the categories below — an
@@ -168,6 +173,34 @@ def score_ingredients(ingredients: list[str], profile: SkinProfile | None = None
                         category=f"{rating}/5 comedogenic rating",
                     )
                 )
+
+        # EU Annex III fragrance allergen — independent of other categories,
+        # informational (whether it matters depends on individual sensitization).
+        allergen_match = match_allergen(ingredient)
+        if allergen_match and allergen_match not in seen_allergens:
+            seen_allergens.add(allergen_match)
+            allergens.append(
+                IngredientFlag(
+                    name=ingredient,
+                    concern="EU-regulated fragrance allergen — must be individually labelled above threshold",
+                    severity="moderate",
+                    category=allergen_match,
+                )
+            )
+
+        # Substances banned outright in the EU — this DOES count against the
+        # score, unlike the informational categories above, since this isn't
+        # a matter of individual sensitivity — it's a legal prohibition.
+        prohibited_match = match_prohibited(ingredient)
+        if prohibited_match and ingredient not in seen_prohibited:
+            seen_prohibited.add(ingredient)
+            prohibited.append(
+                IngredientFlag(
+                    name=ingredient,
+                    concern=prohibited_match,
+                    severity="high",
+                )
+            )
 
         match = _match_ingredient(ingredient, HIGH_CONCERN)
         if match:
@@ -203,9 +236,10 @@ def score_ingredients(ingredients: list[str], profile: SkinProfile | None = None
     base = 70
     penalty_high = min(len(high) * 15, 45)
     penalty_moderate = min(len(moderate) * 8, 24)
+    penalty_prohibited = min(len(prohibited) * 20, 40)  # steeper — this is a legal prohibition, not just a concern
     bonus_beneficial = min(len(beneficial) * 4, 30)
 
-    raw = base - penalty_high - penalty_moderate + bonus_beneficial
+    raw = base - penalty_high - penalty_moderate - penalty_prohibited + bonus_beneficial
     score = max(0, min(100, raw))
     grade = _grade_for(score)
 
@@ -216,8 +250,10 @@ def score_ingredients(ingredients: list[str], profile: SkinProfile | None = None
         moderate_concern=moderate,
         beneficial=beneficial,
         comedogenic=comedogenic,
+        allergens=allergens,
+        prohibited=prohibited,
         total_ingredients=len(ingredients),
-        flagged_count=len(high) + len(moderate),
+        flagged_count=len(high) + len(moderate) + len(prohibited),
     )
 
     if profile is not None:

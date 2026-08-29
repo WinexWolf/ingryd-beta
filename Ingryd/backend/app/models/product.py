@@ -28,6 +28,8 @@ class ProductScore(BaseModel):
     moderate_concern: list[IngredientFlag]
     beneficial: list[IngredientFlag]
     comedogenic: list[IngredientFlag] = []  # informational — does not affect score
+    allergens: list[IngredientFlag] = []  # EU Annex III fragrance allergens — informational
+    prohibited: list[IngredientFlag] = []  # substances banned outright in the EU — treated as high concern
     total_ingredients: int
     flagged_count: int
     fit_score: Optional[int] = None       # personalized score, only present if a profile was supplied
