@@ -141,6 +141,18 @@ export function ScanResult({ product, onReset }: Props) {
         </div>
       )}
 
+      {/* Prohibited — banned outright in the EU, most severe, leads */}
+      {score && score.prohibited.length > 0 && (
+        <div className="p-6" style={{ border: '2px solid #b91c1c', backgroundColor: 'rgba(185,28,28,0.05)' }}>
+          <SectionHeader label="Banned Substance Detected" count={score.prohibited.length} accent="#b91c1c" />
+          <div className="flex flex-col gap-4">
+            {score.prohibited.map((ing) => (
+              <IngredientBadge key={ing.name} ingredient={ing} showConcern />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* High concern */}
       {score && score.high_concern.length > 0 && (
         <div className="p-6" style={{ border: '1px solid rgba(185,28,28,0.4)' }}>
@@ -175,6 +187,22 @@ export function ScanResult({ product, onReset }: Props) {
           </p>
           <div className="flex flex-wrap gap-3">
             {score.comedogenic.map((ing) => (
+              <IngredientBadge key={ing.name} ingredient={ing} showConcern />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* EU Annex III fragrance allergens — informational, matters based on individual sensitization */}
+      {score && score.allergens.length > 0 && (
+        <div className="p-6" style={{ border: '1px solid rgba(180,83,9,0.4)' }}>
+          <SectionHeader label="EU-Regulated Fragrance Allergens" count={score.allergens.length} accent="#a16207" />
+          <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
+            These must be individually labelled under EU law once present above a set threshold —
+            listed here regardless of whether you have a known sensitivity.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {score.allergens.map((ing) => (
               <IngredientBadge key={ing.name} ingredient={ing} showConcern />
             ))}
           </div>

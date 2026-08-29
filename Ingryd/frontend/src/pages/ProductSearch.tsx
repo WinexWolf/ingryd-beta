@@ -242,9 +242,19 @@ export function ProductSearch() {
                     <span className={`text-xs font-semibold tracking-widest uppercase px-3 py-1 border rounded-full ${config.color} ${config.bg}`}>
                       {displayScore} · {config.label}
                     </span>
+                    {(product.score?.prohibited.length ?? 0) > 0 && (
+                      <span className="text-[10px] font-semibold" style={{ color: '#b91c1c' }}>
+                        ⚠ banned substance
+                      </span>
+                    )}
                     {(product.score?.comedogenic.length ?? 0) > 0 && (
                       <span className="text-[10px]" style={{ color: '#a16207' }}>
                         ◐ {product.score!.comedogenic.length} pore-clogging
+                      </span>
+                    )}
+                    {(product.score?.allergens.length ?? 0) > 0 && (
+                      <span className="text-[10px]" style={{ color: '#a16207' }}>
+                        ◐ {product.score!.allergens.length} EU allergen{product.score!.allergens.length !== 1 ? 's' : ''}
                       </span>
                     )}
                   </div>

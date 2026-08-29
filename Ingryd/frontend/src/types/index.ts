@@ -18,6 +18,8 @@ export interface ProductScore {
   moderate_concern: IngredientFlag[]
   beneficial: IngredientFlag[]
   comedogenic: IngredientFlag[]
+  allergens: IngredientFlag[]
+  prohibited: IngredientFlag[]
   total_ingredients: number
   flagged_count: number
   fit_score?: number
