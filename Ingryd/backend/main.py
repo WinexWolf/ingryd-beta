@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes.products import router as products_router
 from app.routes.skin import router as skin_router
 from app.routes.routine import router as routine_router
+from app.routes.ingredients import router as ingredients_router
 
 app = FastAPI(title="Ingryd API", version="1.0.0")
 
@@ -17,6 +18,7 @@ app.add_middleware(
 app.include_router(products_router, prefix="/api")
 app.include_router(skin_router, prefix="/api")
 app.include_router(routine_router, prefix="/api")
+app.include_router(ingredients_router, prefix="/api")
 
 
 @app.get("/health")

@@ -8,6 +8,7 @@ import { useAuth } from '../../services/AuthContext'
 
 const links = [
   { to: '/scan', label: 'Scan', active: true },
+  { to: '/scan-ingredients', label: 'Scan Ingredients', active: true },
   { to: '/skin-analysis', label: 'Skin Analysis', active: true },
   { to: '/search', label: 'Products', active: true },
   { to: '/routine', label: 'Routine', active: true },

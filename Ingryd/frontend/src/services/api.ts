@@ -4,6 +4,7 @@ import type {
   SkinProfile,
   RoutineProductInput,
   RoutineCheckResponse,
+  ProductScore,
 } from '../types'
 import { getProfile, profileToQueryParams } from './profile'
 
@@ -54,4 +55,25 @@ export async function checkRoutine(products: RoutineProductInput[]): Promise<Rou
     body: JSON.stringify({ products }),
   })
   return handle<RoutineCheckResponse>(res)
+}
+
+export interface IngredientAnalysisResult {
+  ingredients_parsed: string[]
+  score: ProductScore
+}
+
+export async function analyzeIngredients(rawText: string, productName?: string): Promise<IngredientAnalysisResult> {
+  const profile = await getProfile()
+  const res = await fetch(`${BASE}/ingredients/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      raw_text: rawText,
+      product_name: productName,
+      skin_type: profile?.skin_type,
+      concerns: profile?.concerns ?? [],
+      sensitivities: profile?.sensitivities ?? [],
+    }),
+  })
+  return handle<IngredientAnalysisResult>(res)
 }
