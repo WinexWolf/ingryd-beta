@@ -1,7 +1,11 @@
 from fastapi import APIRouter
-from app.models.ingredients import IngredientAnalyzeRequest, IngredientAnalyzeResponse, ApproveResponse
+from app.models.ingredients import (
+    IngredientAnalyzeRequest, IngredientAnalyzeResponse, ApproveResponse,
+    NotifySubmissionRequest, NotifyResponse,
+)
 from app.models.product import SkinProfile
 from app.services.ingredient_review import analyze_raw_ingredients, approve_pending_product, reject_pending_product
+from app.services.email_notify import send_review_notification
 
 router = APIRouter(prefix="/ingredients", tags=["ingredients"])
 
@@ -29,3 +33,13 @@ async def approve(pending_id: str):
 async def reject(pending_id: str, notes: str | None = None):
     success, message = reject_pending_product(pending_id, notes)
     return ApproveResponse(success=success, message=message)
+
+
+@router.post("/notify-submission", response_model=NotifyResponse)
+async def notify_submission(request: NotifySubmissionRequest):
+    """Called by the frontend right after it inserts a new row into
+    pending_products directly via Supabase (same pattern as routine_items
+    etc.) — this endpoint's only job is firing the admin notification
+    email. If it fails, the submission itself is already saved regardless."""
+    sent = await send_review_notification(request.product_name, request.brand, request.ingredient_count)
+    return NotifyResponse(sent=sent)

@@ -19,3 +19,13 @@ class IngredientAnalyzeResponse(BaseModel):
 class ApproveResponse(BaseModel):
     success: bool
     message: str
+
+
+class NotifySubmissionRequest(BaseModel):
+    product_name: str | None = None
+    brand: str | None = None
+    ingredient_count: int = 0
+
+
+class NotifyResponse(BaseModel):
+    sent: bool

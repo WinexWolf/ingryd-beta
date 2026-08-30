@@ -145,6 +145,21 @@ export function ScanIngredients() {
       brand: result.brand,
       ingredients_parsed: result.ingredients_parsed,
     })
+
+    if (!insertError) {
+      // Best-effort — a failed notification shouldn't undo a successful submission.
+      const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || '/api'
+      fetch(`${apiBase}/ingredients/notify-submission`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_name: result.name,
+          brand: result.brand,
+          ingredient_count: result.ingredients_parsed.length,
+        }),
+      }).catch(() => {})
+    }
+
     setSubmitStatus(insertError ? 'idle' : 'submitted')
   }
 
