@@ -76,7 +76,7 @@ export function Hub() {
     <section className="flex flex-col gap-8 pt-4">
       <div>
         <p className="text-[10px] tracking-[0.4em] uppercase mb-3" style={{ color: 'var(--muted)' }}>Your skin</p>
-        <h1 className="font-display text-5xl sm:text-6xl" style={{ color: 'var(--fg)' }}>Where you are today</h1>
+        <h1 className="font-display text-4xl sm:text-5xl md:text-6xl" style={{ color: 'var(--fg)' }}>Where you are today</h1>
       </div>
 
       <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4" style={{ border: '1px solid var(--primary)' }}>

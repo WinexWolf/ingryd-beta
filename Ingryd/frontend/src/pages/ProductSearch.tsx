@@ -3,6 +3,7 @@ import { Sun, Moon, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { searchProducts, browseProducts } from '../services/api'
 import type { SortMode } from '../services/api'
 import { addScanToHistory, addRoutineItem } from '../services/history'
+import { SearchBox } from '../components/ui/SearchBox'
 import { ScanResult } from '../components/scanner/ScanResult'
 import type { ProductResult, GradeKey } from '../types'
 import { GRADE_CONFIG } from '../types'
@@ -51,7 +52,7 @@ function AddToRoutineButtons({ product }: { product: ProductResult }) {
           {added === 'pm' ? <Check size={13} /> : <Moon size={13} />}
         </button>
       </div>
-      {failed && <span className="text-[9px] text-red-700">couldn't add</span>}
+      {failed && <span className="text-[9px] text-danger">couldn't add</span>}
     </div>
   )
 }
@@ -148,19 +149,18 @@ export function ProductSearch() {
     <div className="max-w-2xl mx-auto flex flex-col gap-10">
       <div className="pb-6" style={{ borderBottom: '1px solid var(--rim)' }}>
         <p className="text-[10px] tracking-[0.4em] uppercase mb-2" style={{ color: 'var(--muted)' }}>Feature 03</p>
-        <h1 className="font-display text-5xl" style={{ color: 'var(--fg)' }}>Product Search</h1>
+        <h1 className="font-display text-4xl sm:text-5xl" style={{ color: 'var(--fg)' }}>Product Search</h1>
       </div>
 
       {pageState !== 'detail' && (
-        <form onSubmit={handleSearch} className="flex gap-3">
-          <input
-            type="text"
+        <form onSubmit={handleSearch} className="flex gap-2 sm:gap-3 items-start">
+          <SearchBox
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={setQuery}
+            onPick={(sug) => { setQuery(sug.name); loadPage(1, sort, sug.name) }}
             placeholder="Search by product name or brand, e.g. CeraVe cleanser"
-            className="input flex-1"
           />
-          <button type="submit" disabled={!query.trim()} className="btn-primary">
+          <button type="submit" disabled={!query.trim()} className="btn-primary !px-4 sm:!px-6">
             Search
           </button>
         </form>
@@ -178,7 +178,7 @@ export function ProductSearch() {
 
       {pageState === 'error' && (
         <div className="p-10 text-center" style={{ border: '1px solid rgba(185,28,28,0.4)' }}>
-          <p className="text-[10px] tracking-widest uppercase text-red-700 mb-3">Search failed</p>
+          <p className="text-[10px] tracking-widest uppercase text-danger mb-3">Search failed</p>
           <p className="text-sm" style={{ color: 'var(--muted)' }}>{error}</p>
         </div>
       )}
@@ -221,49 +221,56 @@ export function ProductSearch() {
             const displayScore = product.score?.fit_score ?? product.score?.score
             const config = grade ? GRADE_CONFIG[grade] : null
             return (
-              <button
+              <div
                 key={product.barcode || product.name}
+                role="button"
+                tabIndex={0}
                 onClick={() => openProduct(product)}
-                className="flex items-center gap-4 p-4 text-left transition-colors duration-150 hover:opacity-90"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openProduct(product) } }}
+                className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 text-left cursor-pointer transition-colors duration-150 hover:opacity-90"
                 style={{ border: '1px solid var(--rim)', backgroundColor: 'var(--surface)' }}
               >
-                <ProductThumb product={product} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: 'var(--secondary)' }}>
-                    {product.brand ?? 'Unknown brand'}
-                  </p>
-                  <p className="font-display text-lg truncate" style={{ color: 'var(--fg)' }}>
-                    {product.name ?? 'Unnamed product'}
-                  </p>
-                </div>
-                <AddToRoutineButtons product={product} />
-                {config ? (
-                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    <span className={`text-xs font-semibold tracking-widest uppercase px-3 py-1 border rounded-full ${config.color} ${config.bg}`}>
-                      {displayScore} · {config.label}
-                    </span>
-                    {(product.score?.prohibited.length ?? 0) > 0 && (
-                      <span className="text-[10px] font-semibold" style={{ color: '#b91c1c' }}>
-                        ⚠ banned substance
-                      </span>
-                    )}
-                    {(product.score?.comedogenic.length ?? 0) > 0 && (
-                      <span className="text-[10px]" style={{ color: '#a16207' }}>
-                        ◐ {product.score!.comedogenic.length} pore-clogging
-                      </span>
-                    )}
-                    {(product.score?.allergens.length ?? 0) > 0 && (
-                      <span className="text-[10px]" style={{ color: '#a16207' }}>
-                        ◐ {product.score!.allergens.length} EU allergen{product.score!.allergens.length !== 1 ? 's' : ''}
-                      </span>
-                    )}
+                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                  <ProductThumb product={product} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] tracking-widest uppercase mb-1 break-words" style={{ color: 'var(--secondary)' }}>
+                      {product.brand ?? 'Unknown brand'}
+                    </p>
+                    <p className="font-display text-base sm:text-lg leading-snug break-words" style={{ color: 'var(--fg)' }}>
+                      {product.name ?? 'Unnamed product'}
+                    </p>
                   </div>
-                ) : (
-                  <span className="text-[10px] tracking-widest uppercase flex-shrink-0" style={{ color: 'var(--muted)' }}>
-                    No data
-                  </span>
-                )}
-              </button>
+                </div>
+                <div className="flex items-center justify-between sm:justify-end gap-3 flex-wrap">
+                  <AddToRoutineButtons product={product} />
+                  {config ? (
+                    <div className="flex flex-col items-end gap-1 min-w-0">
+                      <span className={`text-[11px] sm:text-xs font-semibold tracking-wider sm:tracking-widest uppercase px-3 py-1 border rounded-full whitespace-nowrap ${config.color} ${config.bg}`}>
+                        {displayScore} · {config.label}
+                      </span>
+                      {(product.score?.prohibited.length ?? 0) > 0 && (
+                        <span className="text-[10px] font-semibold" style={{ color: 'var(--danger)' }}>
+                          ⚠ banned substance
+                        </span>
+                      )}
+                      {(product.score?.comedogenic.length ?? 0) > 0 && (
+                        <span className="text-[10px]" style={{ color: 'var(--warn)' }}>
+                          ◐ {product.score!.comedogenic.length} pore-clogging
+                        </span>
+                      )}
+                      {(product.score?.allergens.length ?? 0) > 0 && (
+                        <span className="text-[10px]" style={{ color: 'var(--warn)' }}>
+                          ◐ {product.score!.allergens.length} EU allergen{product.score!.allergens.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>
+                      No data
+                    </span>
+                  )}
+                </div>
+              </div>
             )
           })}
 

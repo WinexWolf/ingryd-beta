@@ -182,7 +182,7 @@ export function ScanIngredients() {
     <div className="max-w-2xl mx-auto flex flex-col gap-10">
       <div className="pb-6" style={{ borderBottom: '1px solid var(--rim)' }}>
         <p className="text-[10px] tracking-[0.4em] uppercase mb-2" style={{ color: 'var(--muted)' }}>No barcode? No problem</p>
-        <h1 className="font-display text-5xl" style={{ color: 'var(--fg)' }}>Scan Ingredients</h1>
+        <h1 className="font-display text-4xl sm:text-5xl" style={{ color: 'var(--fg)' }}>Scan Ingredients</h1>
         <Link to="/scan" className="text-xs underline inline-block mt-3" style={{ color: 'var(--primary)' }}>← Back to barcode scan</Link>
         <p className="text-sm mt-4 leading-relaxed" style={{ color: 'var(--muted)' }}>
           Photograph the ingredients panel directly — works for products without a scannable barcode.
@@ -288,7 +288,7 @@ export function ScanIngredients() {
 
       {pageState === 'error' && (
         <div className="p-10 text-center" style={{ border: '1px solid rgba(185,28,28,0.4)' }}>
-          <p className="text-[10px] tracking-widest uppercase text-red-700 mb-3">Something went wrong</p>
+          <p className="text-[10px] tracking-widest uppercase text-danger mb-3">Something went wrong</p>
           <p className="text-sm mb-8" style={{ color: 'var(--muted)' }}>{error}</p>
           <button onClick={reset} className="btn-outline">Try Again</button>
         </div>

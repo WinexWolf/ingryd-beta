@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from app.services.catalog import lookup_barcode_with_fallback, catalog_search_products, catalog_browse_products
+from app.services.catalog import lookup_barcode_with_fallback, catalog_search_products, catalog_browse_products, catalog_suggest
 from app.models.product import ProductResult, ProductSearchResponse, SkinProfile
 from app.services.concerns import parse_concern_scores
 from app.models.product import AlternativesRequest, AlternativesResponse, RecommendResponse
@@ -34,11 +34,18 @@ async def get_product_by_barcode(
     sensitivities: str | None = Query(None, description="Comma-separated sensitivities"),
     concern_scores: str | None = Query(None, description="Latest scan, e.g. acne:77,pore:73"),
 ):
-    if not barcode.isdigit() or len(barcode) not in (8, 12, 13, 14):
-        raise HTTPException(status_code=400, detail="Invalid barcode format. Must be EAN-8, UPC-A, or EAN-13.")
+    barcode = "".join(ch for ch in barcode if ch.isdigit())
+    if len(barcode) not in (8, 12, 13, 14):
+        raise HTTPException(status_code=400, detail="That doesn't look like a full barcode. Barcodes have 8, 12 or 13 digits — check for a missing digit.")
     profile = _build_profile(skin_type, concerns, sensitivities, concern_scores)
     result = await lookup_barcode_with_fallback(barcode, profile)
     return result
+
+
+@router.get("/suggest")
+async def suggest(q: str = Query(..., min_length=2, max_length=60)):
+    """Type-ahead suggestions for any product search box."""
+    return {"suggestions": await catalog_suggest(q)}
 
 
 @router.get("/search", response_model=ProductSearchResponse)

@@ -4,7 +4,7 @@ import { addRoutineItem } from '../../services/history'
 import type { RecommendedProduct } from '../../types'
 
 const GRADE_COLOR: Record<string, string> = {
-  excellent: 'var(--moss)', good: 'var(--moss)', fair: '#a16207', poor: '#b91c1c', avoid: '#b91c1c',
+  excellent: 'var(--moss)', good: 'var(--moss)', fair: 'var(--warn)', poor: 'var(--danger)', avoid: 'var(--danger)',
 }
 
 /** One recommended product: fit score, why it suits you, any honest downside. */
@@ -52,7 +52,7 @@ export function ProductPickCard({ pick }: { pick: RecommendedProduct }) {
         </p>
       )}
       {pick.cautions.map((c) => (
-        <p key={c} className="text-xs leading-relaxed" style={{ color: '#a16207' }}>− {c}</p>
+        <p key={c} className="text-xs leading-relaxed" style={{ color: 'var(--warn)' }}>− {c}</p>
       ))}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -62,7 +62,7 @@ export function ProductPickCard({ pick }: { pick: RecommendedProduct }) {
         <button onClick={() => add('pm')} className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5">
           {added === 'pm' ? <Check size={12} /> : <Moon size={12} />} Evening
         </button>
-        {failed && <span className="text-[10px] text-red-700">couldn't add</span>}
+        {failed && <span className="text-[10px] text-danger">couldn't add</span>}
       </div>
     </div>
   )

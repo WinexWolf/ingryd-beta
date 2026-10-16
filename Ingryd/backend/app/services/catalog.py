@@ -1,3 +1,5 @@
+import re
+import time
 from app.models.product import ProductResult, ProductSearchResponse, SkinProfile
 from app.services.scoring import score_ingredients
 from app.services.supabase_client import get_supabase
@@ -74,7 +76,10 @@ async def lookup_in_catalog(gtin: str, profile: SkinProfile | None = None) -> Pr
         return None
 
     try:
-        response = supabase.table("product_full").select("*").eq("gtin", gtin).execute()
+        # The catalog stores 14-digit GTINs but scanners/users give 8, 12 or 13 digits
+        # (e.g. EAN-13 3606000537750 is stored as 03606000537750). Match either form.
+        forms = sorted({gtin, gtin.zfill(14), gtin.lstrip("0").zfill(14)} if gtin.isdigit() else {gtin})
+        response = supabase.table("product_full").select("*").in_("gtin", forms).execute()
     except Exception as e:
         print(f"[catalog] Supabase lookup_in_catalog failed: {e}")
         return None
@@ -368,6 +373,7 @@ async def catalog_search_products(
     if supabase is None:
         return empty()
 
+    query = clean_query(query)
     filter_str = f"product_name.ilike.%{query}%,brand.ilike.%{query}%"
 
     if sort == "score":
@@ -402,6 +408,58 @@ async def catalog_search_products(
     results = [r for r in (_row_to_result_safe(row, profile) for row in response.data) if r is not None]
     total = response.count if response.count is not None else len(results)
     return ProductSearchResponse(query=query, count=len(results), total_count=total, page=page, page_size=page_size, results=results)
+
+
+def clean_query(q: str) -> str:
+    """PostgREST's or=() filter breaks on , ( ) and wildcards typed by users."""
+    return re.sub(r"[,()%*\\\"]", " ", q or "").strip()
+
+
+_SUGGEST_CACHE: dict[str, tuple[float, list[dict]]] = {}
+
+
+async def catalog_suggest(q: str, limit: int = 8) -> list[dict]:
+    """Fast type-ahead: name/brand matches only, no scoring. Prefix matches rank first."""
+    q = clean_query(q)
+    if len(q) < 2:
+        return []
+    key = q.lower()
+    hit = _SUGGEST_CACHE.get(key)
+    if hit and time.time() - hit[0] < 120:
+        return hit[1][:limit]
+    supabase = get_supabase()
+    if supabase is None:
+        return []
+    try:
+        resp = (supabase.table("product_full").select("gtin,product_name,brand")
+                .or_(f"product_name.ilike.%{q}%,brand.ilike.%{q}%").order("product_name").limit(60).execute())
+    except Exception as e:
+        print(f"[catalog] suggest failed: {e}")
+        return []
+    ql = key
+
+    def rank(r: dict) -> tuple:
+        name = (r.get("product_name") or "").lower()
+        brand = (r.get("brand") or "").lower()
+        full = f"{brand} {name}"
+        return (0 if full.startswith(ql) or name.startswith(ql) else 1 if any(w.startswith(ql) for w in full.split()) else 2, len(name))
+
+    seen, out = set(), []
+    for r in sorted(resp.data or [], key=rank):
+        name = r.get("product_name")
+        if not name:
+            continue
+        k = ((r.get("brand") or "").lower(), name.lower())
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append({"barcode": r.get("gtin") or "", "name": name, "brand": r.get("brand")})
+        if len(out) >= 8:
+            break
+    if len(_SUGGEST_CACHE) > 500:
+        _SUGGEST_CACHE.clear()
+    _SUGGEST_CACHE[key] = (time.time(), out)
+    return out[:limit]
 
 
 def _sort_key(r: ProductResult):

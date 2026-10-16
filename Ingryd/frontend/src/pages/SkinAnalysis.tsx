@@ -40,7 +40,7 @@ function fileToBase64(file: File): Promise<string> {
 // score; only the color is flipped so a calm face is green, not red.
 function MetricBar({ label, score, tag, higherIsWorse = false }: { label: string; score: number; tag: string; higherIsWorse?: boolean }) {
   const health = higherIsWorse ? 100 - score : score
-  const color = health < 40 ? '#b91c1c' : health < 65 ? '#a16207' : 'var(--moss)'
+  const color = health < 40 ? 'var(--danger)' : health < 65 ? 'var(--warn)' : 'var(--moss)'
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -113,6 +113,10 @@ export function SkinAnalysis() {
     canvas.height = video.videoHeight
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+    // The live preview is mirrored (like every phone's selfie camera), so save it mirrored too:
+    // the photo then matches what the person saw when they pressed Capture.
+    ctx.translate(canvas.width, 0)
+    ctx.scale(-1, 1)
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
     setImageData(canvas.toDataURL('image/jpeg', 0.92))
     stopCamera()
@@ -171,7 +175,7 @@ export function SkinAnalysis() {
     <div className="max-w-2xl mx-auto flex flex-col gap-10">
       <div className="pb-6" style={{ borderBottom: '1px solid var(--rim)' }}>
         <p className="text-[10px] tracking-[0.4em] uppercase mb-2" style={{ color: 'var(--muted)' }}>Feature 02</p>
-        <h1 className="font-display text-5xl" style={{ color: 'var(--fg)' }}>Skin Analysis</h1>
+        <h1 className="font-display text-4xl sm:text-5xl" style={{ color: 'var(--fg)' }}>Skin Analysis</h1>
         <p className="text-sm mt-4 leading-relaxed" style={{ color: 'var(--muted)' }}>
           A quick image-based read on hydration, oiliness, redness, and texture — plus ingredients to look for.
           AI-assisted and not a clinical or diagnostic tool.
@@ -213,7 +217,7 @@ export function SkinAnalysis() {
       {pageState === 'camera' && (
         <div className="flex flex-col gap-6">
           <div className="flex justify-center" style={{ border: '1px solid var(--rim)', backgroundColor: '#000' }}>
-            <video ref={videoRef} playsInline muted className="max-h-96 w-full object-contain" />
+            <video ref={videoRef} playsInline muted className="max-h-96 w-full object-contain" style={{ transform: 'scaleX(-1)' }} />
           </div>
           <canvas ref={canvasRef} className="hidden" />
           {cameraError ? (
@@ -262,7 +266,7 @@ export function SkinAnalysis() {
 
       {pageState === 'error' && (
         <div className="p-10 text-center" style={{ border: '1px solid rgba(185,28,28,0.4)' }}>
-          <p className="text-[10px] tracking-widest uppercase text-red-700 mb-3">Analysis failed</p>
+          <p className="text-[10px] tracking-widest uppercase text-danger mb-3">Analysis failed</p>
           <p className="text-sm mb-8" style={{ color: 'var(--muted)' }}>{error}</p>
           <div className="flex flex-wrap justify-center gap-3">
             <button onClick={reset} className="btn-outline">Try Again</button>
@@ -284,7 +288,7 @@ export function SkinAnalysis() {
         return (
         <div className="flex flex-col gap-8">
           {sample && (
-            <div className="p-4 text-sm leading-relaxed" style={{ border: '1px solid #a16207', color: 'var(--fg)', backgroundColor: 'rgba(161,98,7,0.08)' }}>
+            <div className="p-4 text-sm leading-relaxed" style={{ border: '1px solid var(--warn)', color: 'var(--fg)', backgroundColor: 'rgba(161,98,7,0.08)' }}>
               <strong>Sample scan.</strong> This is example data, not your skin, and it isn't saved to your history. Scan your own photo for real results.
             </div>
           )}

@@ -12,6 +12,7 @@ import type {
 } from '../types'
 import { getProfile, profileToQueryParams } from './profile'
 import { supabase } from './supabaseClient'
+import { sampleFallback } from './demoData'
 
 const BASE = (import.meta as any).env?.VITE_API_BASE_URL || '/api'
 
@@ -80,9 +81,14 @@ export async function authHeaders(): Promise<Record<string, string>> {
 
 /** A canned example scan: no photo, no sign-in, no API units. */
 export async function analyzeSample(): Promise<SkinProfile> {
-  const res = await fetch(`${BASE}/skin/sample`, { method: 'POST' })
-  const data = await handle<{ profile: SkinProfile }>(res)
-  return data.profile
+  try {
+    const res = await fetch(`${BASE}/skin/sample`, { method: 'POST' })
+    const data = await handle<{ profile: SkinProfile }>(res)
+    return data.profile
+  } catch {
+    // Server asleep / older version / blocked: the sample is static, so use the built-in copy.
+    return sampleFallback()
+  }
 }
 
 export async function analyzeSkin(imageBase64: string): Promise<SkinProfile> {
@@ -140,4 +146,22 @@ export async function analyzeIngredients(rawText: string, productName?: string):
     }),
   })
   return handle<IngredientAnalysisResult>(res)
+}
+
+export interface ProductSuggestion {
+  barcode: string
+  name: string
+  brand: string | null
+}
+
+/** Type-ahead suggestions for product search boxes. Fails quietly: suggestions are a nicety. */
+export async function suggestProducts(q: string, signal?: AbortSignal): Promise<ProductSuggestion[]> {
+  try {
+    const res = await fetch(`${BASE}/products/suggest?q=${encodeURIComponent(q)}`, { signal })
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.suggestions ?? []
+  } catch {
+    return []
+  }
 }

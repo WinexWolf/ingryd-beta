@@ -24,18 +24,17 @@ export function useBarcode() {
 
       const devices = await BrowserMultiFormatReader.listVideoInputDevices()
       // Prefer rear camera on mobile
-      const device =
-        devices.find((d) => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('rear')) ||
-        devices[0]
-
-      if (!device) {
+      if (devices.length === 0) {
         throw new Error('No camera found on this device.')
       }
+      // Prefer a camera labelled back/rear. If none is labelled (common on iOS before permission),
+      // pass undefined so the browser picks the rear camera via facingMode 'environment'.
+      const device = devices.find((d) => /back|rear|environment/i.test(d.label))
 
       setState('scanning')
 
       const controls = await reader.decodeFromVideoDevice(
-        device.deviceId,
+        device?.deviceId,
         videoElement,
         (scanResult, err) => {
           if (scanResult) {

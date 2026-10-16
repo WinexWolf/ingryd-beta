@@ -1,8 +1,8 @@
 import type { ConcernArea } from '../../types'
 
 export const STATUS_COLOR: Record<ConcernArea['status'], string> = {
-  attention: '#b91c1c',
-  watch: '#a16207',
+  attention: 'var(--danger)',
+  watch: 'var(--warn)',
   good: 'var(--moss)',
 }
 

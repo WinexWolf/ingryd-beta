@@ -37,14 +37,20 @@ export function Scanner() {
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (manualBarcode.trim()) handleBarcode(manualBarcode.trim())
+    const digits = manualBarcode.replace(/\D/g, '') // tolerate spaces and dashes from copy/paste
+    if (![8, 12, 13, 14].includes(digits.length)) {
+      setApiError(`That has ${digits.length} digit${digits.length === 1 ? '' : 's'}. Barcodes have 8, 12 or 13 digits — check for a missing digit.`)
+      setPageState('error')
+      return
+    }
+    handleBarcode(digits)
   }
 
   return (
     <div className="flex flex-col gap-10 max-w-2xl mx-auto">
       <div className="pb-6" style={{ borderBottom: '1px solid var(--rim)' }}>
         <p className="text-[10px] tracking-[0.4em] uppercase mb-2" style={{ color: 'var(--muted)' }}>Feature 01</p>
-        <h1 className="font-display text-5xl" style={{ color: 'var(--fg)' }}>Scan a Product</h1>
+        <h1 className="font-display text-4xl sm:text-5xl" style={{ color: 'var(--fg)' }}>Scan a Product</h1>
       </div>
 
       {pageState === 'scanner' && (
@@ -54,21 +60,23 @@ export function Scanner() {
             <p className="text-[10px] tracking-widest uppercase mb-4" style={{ color: 'var(--muted)' }}>
               Or enter barcode manually
             </p>
-            <form onSubmit={handleManualSubmit} className="flex gap-3">
+            <form onSubmit={handleManualSubmit} className="flex gap-2 sm:gap-3">
               <input
                 type="text"
                 value={manualBarcode}
                 onChange={(e) => setManualBarcode(e.target.value)}
                 placeholder="e.g. 3606000537750"
-                className="input flex-1"
+                className="input flex-1 min-w-0"
                 inputMode="numeric"
               />
-              <button type="submit" disabled={!manualBarcode.trim()} className="btn-primary">
+              <button type="submit" disabled={!manualBarcode.trim()} className="btn-primary !px-4 sm:!px-6">
                 Look up
               </button>
             </form>
             <p className="text-[11px] mt-3" style={{ color: 'var(--muted)' }}>
-              Test with: <code style={{ color: 'var(--secondary)' }}>3606000537750</code> (CeraVe Foaming Cleanser)
+              Test with:{' '}
+              <button type="button" onClick={() => setManualBarcode('3606000537750')} className="underline" style={{ color: 'var(--secondary)' }}>3606000537750</button>{' '}
+              (CeraVe Foaming Cleanser)
             </p>
           </div>
           <p className="text-sm text-center" style={{ color: 'var(--muted)' }}>
@@ -107,7 +115,7 @@ export function Scanner() {
 
       {pageState === 'error' && (
         <div className="p-10 text-center" style={{ border: '1px solid rgba(185,28,28,0.4)' }}>
-          <p className="text-[10px] tracking-widest uppercase text-red-700 mb-3">Request failed</p>
+          <p className="text-[10px] tracking-widest uppercase text-danger mb-3">Request failed</p>
           <p className="text-sm mb-8" style={{ color: 'var(--muted)' }}>{apiError}</p>
           <button onClick={handleReset} className="btn-outline">Try Again</button>
         </div>

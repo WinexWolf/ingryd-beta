@@ -52,7 +52,7 @@ export function Profile() {
     <div className="max-w-2xl mx-auto flex flex-col gap-10">
       <div className="pb-6" style={{ borderBottom: '1px solid var(--rim)' }}>
         <p className="text-[10px] tracking-[0.4em] uppercase mb-2" style={{ color: 'var(--muted)' }}>Your profile</p>
-        <h1 className="font-display text-5xl" style={{ color: 'var(--fg)' }}>Skin Profile</h1>
+        <h1 className="font-display text-4xl sm:text-5xl" style={{ color: 'var(--fg)' }}>Skin Profile</h1>
         <p className="text-sm mt-4 leading-relaxed" style={{ color: 'var(--muted)' }}>
           This powers your personalized Fit Score — every product you scan or search gets scored against
           your skin type, concerns, and sensitivities, not just a generic formula.

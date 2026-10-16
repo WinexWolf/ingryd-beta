@@ -97,8 +97,8 @@ export function ScanResult({ product, onReset }: Props) {
         <div style={{ border: '1px solid var(--rim)' }}>
           <div className="grid grid-cols-3" style={{ borderBottom: '1px solid var(--rim)', borderRight: 'none' }}>
             {[
-              { val: score.high_concern.length,    label: 'High concern', color: '#b91c1c' },
-              { val: score.moderate_concern.length, label: 'Moderate',     color: '#a16207' },
+              { val: score.high_concern.length,    label: 'High concern', color: 'var(--danger)' },
+              { val: score.moderate_concern.length, label: 'Moderate',     color: 'var(--warn)' },
               { val: score.beneficial.length,       label: 'Beneficial',   color: 'var(--moss)' },
             ].map((s, i) => (
               <div
@@ -132,7 +132,7 @@ export function ScanResult({ product, onReset }: Props) {
                 </div>
                 <span
                   className="text-xs font-mono flex-shrink-0"
-                  style={{ color: n.adjustment > 0 ? 'var(--moss)' : '#b91c1c' }}
+                  style={{ color: n.adjustment > 0 ? 'var(--moss)' : 'var(--danger)' }}
                 >
                   {n.adjustment > 0 ? '+' : ''}{n.adjustment}
                 </span>
@@ -146,8 +146,8 @@ export function ScanResult({ product, onReset }: Props) {
 
       {/* Prohibited — banned outright in the EU, most severe, leads */}
       {score && score.prohibited.length > 0 && (
-        <div className="p-6" style={{ border: '2px solid #b91c1c', backgroundColor: 'rgba(185,28,28,0.05)' }}>
-          <SectionHeader label="Banned Substance Detected" count={score.prohibited.length} accent="#b91c1c" />
+        <div className="p-6" style={{ border: '2px solid var(--danger)', backgroundColor: 'rgba(185,28,28,0.05)' }}>
+          <SectionHeader label="Banned Substance Detected" count={score.prohibited.length} accent="var(--danger)" />
           <div className="flex flex-col gap-4">
             {score.prohibited.map((ing) => (
               <IngredientBadge key={ing.name} ingredient={ing} showConcern />
@@ -159,7 +159,7 @@ export function ScanResult({ product, onReset }: Props) {
       {/* High concern */}
       {score && score.high_concern.length > 0 && (
         <div className="p-6" style={{ border: '1px solid rgba(185,28,28,0.4)' }}>
-          <SectionHeader label="High Concern Ingredients" count={score.high_concern.length} accent="#b91c1c" />
+          <SectionHeader label="High Concern Ingredients" count={score.high_concern.length} accent="var(--danger)" />
           <div className="flex flex-col gap-4">
             {score.high_concern.map((ing) => (
               <IngredientBadge key={ing.name} ingredient={ing} showConcern />
@@ -171,7 +171,7 @@ export function ScanResult({ product, onReset }: Props) {
       {/* Moderate concern */}
       {score && score.moderate_concern.length > 0 && (
         <div className="p-6" style={{ border: '1px solid rgba(180,83,9,0.4)' }}>
-          <SectionHeader label="Moderate Concern" count={score.moderate_concern.length} accent="#a16207" />
+          <SectionHeader label="Moderate Concern" count={score.moderate_concern.length} accent="var(--warn)" />
           <div className="flex flex-wrap gap-3">
             {score.moderate_concern.map((ing) => (
               <IngredientBadge key={ing.name} ingredient={ing} showConcern />
@@ -183,7 +183,7 @@ export function ScanResult({ product, onReset }: Props) {
       {/* Comedogenic — informational, shown to everyone regardless of skin type */}
       {score && score.comedogenic.length > 0 && (
         <div className="p-6" style={{ border: '1px solid rgba(180,83,9,0.4)' }}>
-          <SectionHeader label="May Clog Pores (Comedogenic)" count={score.comedogenic.length} accent="#a16207" />
+          <SectionHeader label="May Clog Pores (Comedogenic)" count={score.comedogenic.length} accent="var(--warn)" />
           <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
             Rated on the standard 0–5 comedogenicity scale. Matters most if you're acne-prone or oily —
             set up your profile for a personalized read on this.
@@ -199,7 +199,7 @@ export function ScanResult({ product, onReset }: Props) {
       {/* EU Annex III fragrance allergens — informational, matters based on individual sensitization */}
       {score && score.allergens.length > 0 && (
         <div className="p-6" style={{ border: '1px solid rgba(180,83,9,0.4)' }}>
-          <SectionHeader label="EU-Regulated Fragrance Allergens" count={score.allergens.length} accent="#a16207" />
+          <SectionHeader label="EU-Regulated Fragrance Allergens" count={score.allergens.length} accent="var(--warn)" />
           <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
             These must be individually labelled under EU law once present above a set threshold —
             listed here regardless of whether you have a known sensitivity.

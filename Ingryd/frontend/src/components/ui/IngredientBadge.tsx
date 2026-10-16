@@ -20,7 +20,7 @@ export function IngredientBadge({ ingredient, showConcern = false }: Props) {
       <div className="flex flex-col gap-1">
         <span className="badge-harmful">⚠ {ingredient.name}</span>
         {showConcern && (
-          <span className="text-[11px] text-red-700/80 pl-1">{ingredient.concern}</span>
+          <span className="text-[11px] text-danger pl-1">{ingredient.concern}</span>
         )}
       </div>
     )
@@ -32,11 +32,11 @@ export function IngredientBadge({ ingredient, showConcern = false }: Props) {
         <span className="badge-moderate">
           ◐ {ingredient.name}
           {ingredient.category && (
-            <span className="text-amber-700/50 font-normal normal-case tracking-normal"> · {ingredient.category}</span>
+            <span className="text-warn opacity-70 font-normal normal-case tracking-normal"> · {ingredient.category}</span>
           )}
         </span>
         {showConcern && (
-          <span className="text-[11px] text-amber-700/80 pl-1">{ingredient.concern}</span>
+          <span className="text-[11px] text-warn pl-1">{ingredient.concern}</span>
         )}
       </div>
     )

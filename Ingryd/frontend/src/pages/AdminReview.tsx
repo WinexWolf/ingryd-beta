@@ -81,7 +81,7 @@ export function AdminReview() {
     <div className="max-w-2xl mx-auto flex flex-col gap-8">
       <div className="pb-6" style={{ borderBottom: '1px solid var(--rim)' }}>
         <p className="text-[10px] tracking-[0.4em] uppercase mb-2" style={{ color: 'var(--muted)' }}>Catalog review</p>
-        <h1 className="font-display text-5xl" style={{ color: 'var(--fg)' }}>Pending Submissions</h1>
+        <h1 className="font-display text-4xl sm:text-5xl" style={{ color: 'var(--fg)' }}>Pending Submissions</h1>
         <p className="text-sm mt-4" style={{ color: 'var(--muted)' }}>{items.length} awaiting review</p>
       </div>
 

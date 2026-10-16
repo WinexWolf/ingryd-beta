@@ -1,7 +1,7 @@
 import type { Progress } from '../../services/progress'
 import { MEANINGFUL } from '../../services/progress'
 
-const COLOR = { better: 'var(--moss)', worse: '#b91c1c', steady: 'var(--muted)' }
+const COLOR = { better: 'var(--moss)', worse: 'var(--danger)', steady: 'var(--muted)' }
 const sign = (n: number) => (n > 0 ? `+${n}` : `${n}`)
 
 /** What changed since the previous scan, with small wobbles reported as "no meaningful change". */

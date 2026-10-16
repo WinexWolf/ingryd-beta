@@ -11,7 +11,7 @@
   --bg:       #FBF7EC;
   --surface:  #FFFFFF;
   --fg:       #241F17;
-  --muted:    rgba(36,31,23,0.5);
+  --muted:    rgba(36,31,23,0.62);
   --rim:      rgba(36,31,23,0.12);
   --primary:  #6F8F4C;   /* matcha leads in light */
   --primary-fg: #FFFFFF;
@@ -20,13 +20,29 @@
   --moss:     #6F8F4C;
   --ink:      #241F17;
   --chalk:    #D9D2BE;
+  --danger:   #B91C1C;
+  --warn:     #92600A;
+  --ok:       #4F6F33;
+  --g-excellent: #4F6F33; --g-excellent-bg: rgba(111,143,76,0.12); --g-excellent-bd: #6F8F4C;
+  --g-good: rgba(36,31,23,0.78); --g-good-bg: rgba(217,210,190,0.30); --g-good-bd: #B8AE8E;
+  --g-fair: #8A5A06; --g-fair-bg: #FEF6DC; --g-fair-bd: #E5B84A;
+  --g-poor: #B4430C; --g-poor-bg: #FDEEE3; --g-poor-bd: #F0A070;
+  --g-avoid: #B91C1C; --g-avoid-bg: #FDE8E8; --g-avoid-bd: #F09A9A;
 }
 
 .dark {
   --bg:       #14150F;
   --surface:  #1D1F16;
   --fg:       #F3EEE1;
-  --muted:    rgba(243,238,225,0.45);
+  --muted:    rgba(243,238,225,0.66);
+  --danger:   #FF8A8A;
+  --warn:     #F0C45A;
+  --ok:       #9CC56F;
+  --g-excellent: #A6D17A; --g-excellent-bg: rgba(143,181,106,0.16); --g-excellent-bd: #8FB56A;
+  --g-good: rgba(243,238,225,0.88); --g-good-bg: rgba(243,238,225,0.09); --g-good-bd: rgba(243,238,225,0.38);
+  --g-fair: #F3CB6B; --g-fair-bg: rgba(240,196,90,0.13); --g-fair-bd: rgba(240,196,90,0.55);
+  --g-poor: #FFA567; --g-poor-bg: rgba(255,150,90,0.13); --g-poor-bd: rgba(255,150,90,0.55);
+  --g-avoid: #FF9A9A; --g-avoid-bg: rgba(255,110,110,0.14); --g-avoid-bd: rgba(255,120,120,0.6);
   --rim:      #33352A;
   --primary:  #F0748A;   /* strawberry leads in dark */
   --primary-fg: #14150F;
@@ -119,19 +135,19 @@
   .badge-harmful {
     @apply inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 tracking-wide uppercase rounded-full;
     background-color: rgba(224,122,95,0.14);
-    color: #c2540f;
+    color: var(--g-poor);
     border: 1px solid rgba(224,122,95,0.4);
   }
   .badge-moderate {
     @apply inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 tracking-wide uppercase rounded-full;
     background-color: rgba(224,163,53,0.14);
-    color: #a5710a;
+    color: var(--g-fair);
     border: 1px solid rgba(224,163,53,0.4);
   }
   .badge-beneficial {
     @apply inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 tracking-wide uppercase rounded-full;
     background-color: rgba(111,143,76,0.14);
-    color: var(--moss);
+    color: var(--ok);
     border: 1px solid var(--moss);
   }
   .badge-neutral {
@@ -189,3 +205,13 @@
   transform-origin: 50% 50%;
   transition: stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1);
 }
+
+/* Grade pills: one source of truth, readable in both modes */
+.grade-excellent { color: var(--g-excellent); background-color: var(--g-excellent-bg); border-color: var(--g-excellent-bd); }
+.grade-good      { color: var(--g-good);      background-color: var(--g-good-bg);      border-color: var(--g-good-bd); }
+.grade-fair      { color: var(--g-fair);      background-color: var(--g-fair-bg);      border-color: var(--g-fair-bd); }
+.grade-poor      { color: var(--g-poor);      background-color: var(--g-poor-bg);      border-color: var(--g-poor-bd); }
+.grade-avoid     { color: var(--g-avoid);     background-color: var(--g-avoid-bg);     border-color: var(--g-avoid-bd); }
+
+/* Phones: never let a long word or wide row push the page sideways */
+html, body { overflow-x: hidden; }

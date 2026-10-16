@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../services/AuthContext'
+import { PasswordField } from '../components/auth/PasswordField'
+import { checkPassword } from '../services/passwordRules'
 
 type Mode = 'login' | 'signup' | 'forgot'
 
@@ -17,6 +19,11 @@ export function Auth() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    if (mode === 'signup' && !checkPassword(password).valid) {
+      setError('Please choose a password that meets every requirement in the checklist.')
+      return
+    }
     setBusy(true)
 
     if (mode === 'forgot') {
@@ -85,24 +92,21 @@ export function Auth() {
           className="input"
         />
         {mode !== 'forgot' && (
-          <input
-            type="password"
+          <PasswordField
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            required
-            minLength={6}
-            className="input"
+            onChange={setPassword}
+            showRules={mode === 'signup'}
+            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
           />
         )}
 
         {error && (
-          <p className="text-xs" style={{ color: isNotice ? 'var(--moss)' : '#b91c1c' }}>
+          <p className="text-xs" style={{ color: isNotice ? 'var(--moss)' : 'var(--danger)' }}>
             {error}
           </p>
         )}
 
-        <button type="submit" disabled={busy} className="btn-primary">
+        <button type="submit" disabled={busy || (mode === 'signup' && !checkPassword(password).valid)} className="btn-primary">
           {busy ? 'Please wait…' : mode === 'login' ? 'Log In' : mode === 'signup' ? 'Sign Up' : 'Send Reset Link'}
         </button>
       </form>

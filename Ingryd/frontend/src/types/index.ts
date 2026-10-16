@@ -207,9 +207,10 @@ export interface RoutineFitResponse {
 export type GradeKey = 'excellent' | 'good' | 'fair' | 'poor' | 'avoid'
 
 export const GRADE_CONFIG: Record<GradeKey, { label: string; color: string; bg: string; ring: string }> = {
-  excellent: { label: 'Excellent', color: 'text-moss border-moss',       bg: 'bg-moss/10',      ring: '#6F8F4C' },
-  good:      { label: 'Good',      color: 'text-ink/70 border-chalk',    bg: 'bg-chalk/20',     ring: '#B8AE8E' },
-  fair:      { label: 'Fair',      color: 'text-amber-700 border-amber-300', bg: 'bg-amber-50', ring: '#d97706' },
-  poor:      { label: 'Poor',      color: 'text-orange-700 border-orange-300', bg: 'bg-orange-50', ring: '#ea580c' },
-  avoid:     { label: 'Avoid',     color: 'text-red-700 border-red-300', bg: 'bg-red-50',       ring: '#dc2626' },
+  // colors come from CSS variables (index.css) so they stay readable in light and dark mode
+  excellent: { label: 'Excellent', color: 'grade-excellent', bg: '', ring: 'var(--g-excellent-bd)' },
+  good:      { label: 'Good',      color: 'grade-good',      bg: '', ring: 'var(--g-good-bd)' },
+  fair:      { label: 'Fair',      color: 'grade-fair',      bg: '', ring: 'var(--g-fair-bd)' },
+  poor:      { label: 'Poor',      color: 'grade-poor',      bg: '', ring: 'var(--g-poor-bd)' },
+  avoid:     { label: 'Avoid',     color: 'grade-avoid',     bg: '', ring: 'var(--g-avoid-bd)' },
 }

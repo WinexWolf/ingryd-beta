@@ -44,11 +44,11 @@ const scoreSteps = [
 ]
 
 const gradeColors: Record<string, { text: string; border: string; bg: string }> = {
-  moss:   { text: 'text-moss',       border: 'border-moss',       bg: 'bg-moss/10' },
-  chalk:  { text: 'text-ink/70',     border: 'border-chalk',      bg: 'bg-chalk/20' },
-  amber:  { text: 'text-amber-700',  border: 'border-amber-300',  bg: 'bg-amber-50' },
-  orange: { text: 'text-orange-700', border: 'border-orange-300', bg: 'bg-orange-50' },
-  red:    { text: 'text-red-700',    border: 'border-red-300',    bg: 'bg-red-50' },
+  moss:   { text: 'grade-excellent', border: '', bg: '' },
+  chalk:  { text: 'grade-good',      border: '', bg: '' },
+  amber:  { text: 'grade-fair',      border: '', bg: '' },
+  orange: { text: 'grade-poor',      border: '', bg: '' },
+  red:    { text: 'grade-avoid',     border: '', bg: '' },
 }
 
 export function Home() {
@@ -89,7 +89,7 @@ export function Home() {
           <div className="h-px w-8" style={{ backgroundColor: 'var(--secondary)', opacity: 0.4 }} />
         </div>
 
-        <h1 className="font-display text-7xl sm:text-8xl lg:text-9xl leading-[0.92] mb-8" style={{ color: 'var(--fg)' }}>
+        <h1 className="font-display text-5xl min-[400px]:text-6xl sm:text-8xl lg:text-9xl leading-[0.92] mb-8" style={{ color: 'var(--fg)' }}>
           Know what's
           <br />
           <span className="shimmer-text">on your skin.</span>
@@ -155,7 +155,7 @@ export function Home() {
               <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Latest skin score</p>
               {latestSkin ? (
                 <div className="flex items-end gap-4">
-                  <span className="font-display text-5xl" style={{ color: 'var(--fg)' }}>{latestSkin.profile.overall_score}</span>
+                  <span className="font-display text-4xl sm:text-5xl" style={{ color: 'var(--fg)' }}>{latestSkin.profile.overall_score}</span>
                   <span className="text-xs pb-2" style={{ color: 'var(--muted)' }}>
                     {new Date(latestSkin.timestamp).toLocaleDateString()}
                   </span>
@@ -292,16 +292,16 @@ export function Home() {
             return (
               <div
                 key={s.grade}
-                className={`flex items-center justify-between px-6 py-4 ${c.bg}`}
-                style={i < scoreSteps.length - 1 ? { borderBottom: '1px solid var(--rim)' } : {}}
+                className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4"
+                style={{ ...(i < scoreSteps.length - 1 ? { borderBottom: '1px solid var(--rim)' } : {}), backgroundColor: `var(--g-${s.grade.toLowerCase()}-bg)` }}
               >
-                <div className="flex items-center gap-6">
-                  <span className={`text-xs font-semibold tracking-widest uppercase px-3 py-1 border ${c.text} ${c.border}`}>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 min-w-0">
+                  <span className={`self-start text-xs font-semibold tracking-widest uppercase px-3 py-1 border ${c.text}`}>
                     {s.grade}
                   </span>
                   <span className="text-sm" style={{ color: 'var(--muted)' }}>{s.desc}</span>
                 </div>
-                <span className="text-xs font-mono" style={{ color: 'var(--muted)' }}>{s.label}</span>
+                <span className="text-xs font-mono whitespace-nowrap flex-shrink-0" style={{ color: 'var(--muted)' }}>{s.label}</span>
               </div>
             )
           })}

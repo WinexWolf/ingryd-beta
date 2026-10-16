@@ -88,7 +88,7 @@ export function BarcodeScanner({ onDetected }: Props) {
             className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 text-center"
             style={{ backgroundColor: 'var(--surface)' }}
           >
-            <p className="text-[10px] tracking-widest uppercase text-red-700">Camera error</p>
+            <p className="text-[10px] tracking-widest uppercase text-danger">Camera error</p>
             <p className="text-xs" style={{ color: 'var(--muted)' }}>{error}</p>
           </div>
         )}

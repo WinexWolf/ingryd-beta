@@ -59,7 +59,7 @@ export function RoutineFitPanel({ products }: { products: RoutineProductInput[] 
 
       {data.gaps.length > 0 && (
         <div className="flex flex-col gap-3">
-          <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: '#b91c1c' }}>Not covered yet</p>
+          <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'var(--danger)' }}>Not covered yet</p>
           {data.gaps.map((g) => (
             <div key={g.concern} className="p-4 flex flex-col gap-3" style={{ border: '1px solid rgba(185,28,28,0.4)' }}>
               <p className="text-sm" style={{ color: 'var(--fg)' }}>{g.message}</p>
@@ -76,7 +76,7 @@ export function RoutineFitPanel({ products }: { products: RoutineProductInput[] 
 
       {data.missing_basics.length > 0 && (
         <div className="p-4 flex flex-col gap-2" style={{ border: '1px solid rgba(180,83,9,0.4)' }}>
-          <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: '#a16207' }}>Basics</p>
+          <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'var(--warn)' }}>Basics</p>
           {data.missing_basics.map((b) => <p key={b} className="text-sm" style={{ color: 'var(--fg)' }}>{b}</p>)}
         </div>
       )}
@@ -91,10 +91,10 @@ export function RoutineFitPanel({ products }: { products: RoutineProductInput[] 
                   {p.brand ? `${p.brand} · ` : ''}{p.name}
                   <span className="text-[10px] uppercase tracking-widest ml-2" style={{ color: 'var(--muted)' }}>{p.slot === 'am' ? 'AM' : 'PM'}</span>
                 </p>
-                <p className="font-display text-xl" style={{ color: (p.fit_score ?? 0) >= 70 ? 'var(--moss)' : (p.fit_score ?? 0) >= 50 ? '#a16207' : '#b91c1c' }}>{p.fit_score}</p>
+                <p className="font-display text-xl" style={{ color: (p.fit_score ?? 0) >= 70 ? 'var(--moss)' : (p.fit_score ?? 0) >= 50 ? 'var(--warn)' : 'var(--danger)' }}>{p.fit_score}</p>
               </div>
               {p.working_for.map((w) => <p key={w} className="text-xs" style={{ color: 'var(--muted)' }}><span style={{ color: 'var(--moss)' }}>+ </span>{w}</p>)}
-              {p.working_against.map((w) => <p key={w} className="text-xs" style={{ color: '#a16207' }}>− {w}</p>)}
+              {p.working_against.map((w) => <p key={w} className="text-xs" style={{ color: 'var(--warn)' }}>− {w}</p>)}
             </div>
           ))}
         </div>

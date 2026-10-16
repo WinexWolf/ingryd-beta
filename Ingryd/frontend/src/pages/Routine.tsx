@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Sun, Moon, X } from 'lucide-react'
+import { SearchBox } from '../components/ui/SearchBox'
 import { fetchProductByBarcode, searchProducts, checkRoutine } from '../services/api'
 import { getRoutine, addRoutineItem, removeRoutineItem } from '../services/history'
 import { BottleIcon } from '../components/routine/BottleIcon'
@@ -149,7 +150,7 @@ export function Routine() {
     <div className="max-w-2xl mx-auto flex flex-col gap-10">
       <div className="pb-6" style={{ borderBottom: '1px solid var(--rim)' }}>
         <p className="text-[10px] tracking-[0.4em] uppercase mb-2" style={{ color: 'var(--muted)' }}>Feature 04</p>
-        <h1 className="font-display text-5xl" style={{ color: 'var(--fg)' }}>My Routine</h1>
+        <h1 className="font-display text-4xl sm:text-5xl" style={{ color: 'var(--fg)' }}>My Routine</h1>
       </div>
 
       {/* Add product form */}
@@ -178,18 +179,33 @@ export function Routine() {
           ))}
         </div>
         <form onSubmit={addMode === 'barcode' ? handleBarcodeSubmit : handleSearchSubmit} className="flex gap-3">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder={addMode === 'barcode' ? 'e.g. 3606000537750' : 'e.g. CeraVe Foaming Cleanser'}
-            className="input flex-1"
-          />
+          {addMode === 'search' ? (
+            <SearchBox
+              value={inputValue}
+              onChange={setInputValue}
+              placeholder="e.g. CeraVe Foaming Cleanser"
+              onPick={async (sug) => {
+                setBusy(true); setAddError(null)
+                try { await pickSearchResult(await fetchProductByBarcode(sug.barcode)) }
+                catch (err: unknown) { setAddError(err instanceof Error ? err.message : 'Could not add that product') }
+                finally { setBusy(false) }
+              }}
+            />
+          ) : (
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="e.g. 3606000537750"
+              className="input flex-1 min-w-0"
+              inputMode="numeric"
+            />
+          )}
           <button type="submit" disabled={!inputValue.trim() || busy} className="btn-primary">
             {busy ? '…' : addMode === 'barcode' ? 'Add' : 'Search'}
           </button>
         </form>
-        {addError && <p className="text-xs text-red-700">{addError}</p>}
+        {addError && <p className="text-xs text-danger">{addError}</p>}
 
         {/* Pick which product to add — this is what was missing before */}
         {addMode === 'search' && searchResults.length > 0 && (
@@ -257,7 +273,7 @@ export function Routine() {
               >
                 <p
                   className="text-[10px] tracking-widest uppercase mb-3"
-                  style={{ color: c.severity === 'high' ? '#b91c1c' : '#a16207' }}
+                  style={{ color: c.severity === 'high' ? 'var(--danger)' : 'var(--warn)' }}
                 >
                   {c.severity === 'high' ? 'High conflict' : 'Moderate conflict'} · {c.product_a} + {c.product_b}
                 </p>
