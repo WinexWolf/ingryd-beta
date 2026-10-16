@@ -1,0 +1,33 @@
+# Testing Ingryd
+
+Thanks for trying Ingryd. It takes about 10 minutes.
+
+**Open:** https://ingryd-beta.vercel.app/ (works best on a phone or laptop with a camera)
+
+You'll need to create an account (any email). Please **don't** use a photo of anyone but yourself.
+
+## Walk-through
+
+1. **Create an account** and sign in.
+2. **Skin Analysis → take or upload a selfie.**
+   - Use soft daylight, no makeup, no filters.
+   - Tick the consent box, then tap *Analyze Skin*. It takes up to about 30 seconds.
+   - No photo handy? Tap *See a sample scan* instead (example data, clearly labelled).
+3. **Read your results.** Check that the three focus areas make sense for your skin, and tap a concern to see where it was detected on your photo.
+4. **Tap "Apply to my profile".** Then open *My Profile* and confirm it looks right.
+5. **Scan a product.** Use *Scan* (barcode `3606000537750` works without a camera) or *Search* and open a product you use. Look at your Fit Score and the "Better for you" suggestions.
+6. **My Routine.** Add 2–3 products you really use (search by name). Read "Your routine vs your skin".
+7. **Home.** Check the "Next best step". Tap *Load demo data* to see how progress over time looks, then *Remove demo data*.
+
+You have 3 live scans per day. The sample scan is unlimited.
+
+## Please tell us
+
+- Did anything break, look wrong, or feel slow? (A screenshot helps.)
+- Did the focus areas and overlays match what you see in the mirror?
+- Was it clear *why* a product got its Fit Score?
+- Did the "what to do next" suggestions feel useful or generic?
+- Anything confusing or any step where you didn't know what to do?
+- Would you trust a recommendation from this? What would make you trust it more?
+
+Ingryd is not a medical tool and doesn't diagnose anything. Your photo is sent to our skin-analysis partner (YouCam) for analysis and isn't kept by Ingryd.
