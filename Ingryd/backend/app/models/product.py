@@ -13,6 +13,7 @@ class SkinProfile(BaseModel):
     skin_type: Optional[str] = None  # "dry" | "oily" | "combination" | "sensitive" | "normal"
     concerns: list[str] = []         # e.g. "acne", "aging", "hyperpigmentation", "redness", "dryness"
     sensitivities: list[str] = []    # free-text ingredient names the user reacts to
+    concern_scores: dict[str, int] = {}  # latest scan, YouCam ui_score per concern (0-100, higher = healthier)
 
 
 class PersonalNote(BaseModel):

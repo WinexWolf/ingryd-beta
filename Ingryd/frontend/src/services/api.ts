@@ -73,6 +73,7 @@ export async function analyzeIngredients(rawText: string, productName?: string):
       skin_type: profile?.skin_type,
       concerns: profile?.concerns ?? [],
       sensitivities: profile?.sensitivities ?? [],
+      concern_scores: profile?.concern_scores ?? {},
     }),
   })
   return handle<IngredientAnalysisResult>(res)

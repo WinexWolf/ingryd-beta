@@ -13,11 +13,12 @@ router = APIRouter(prefix="/ingredients", tags=["ingredients"])
 @router.post("/analyze", response_model=IngredientAnalyzeResponse)
 async def analyze(request: IngredientAnalyzeRequest):
     profile = None
-    if request.skin_type or request.concerns or request.sensitivities:
+    if request.skin_type or request.concerns or request.sensitivities or request.concern_scores:
         profile = SkinProfile(
             skin_type=request.skin_type,
             concerns=request.concerns,
             sensitivities=request.sensitivities,
+            concern_scores=request.concern_scores,
         )
     normalized, scored = analyze_raw_ingredients(request.raw_text, request.product_name, profile)
     return IngredientAnalyzeResponse(ingredients_parsed=normalized, score=scored)

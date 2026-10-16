@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from PIL import Image, ImageOps
 
 from app.models.skin import SkinMetric, SkinProfile
+from app.services.concerns import APP_CONCERN_KEYS, flagged
 from app.services.youcam import YouCamAnalysis
 
 MIN_SIDE = 480          # YouCam requires short side >= 480px
@@ -68,6 +69,27 @@ def release_call() -> None:
     """Give the slot back when a call failed (YouCam only charges on success)."""
     if _usage["n"] > 0:
         _usage["n"] -= 1
+
+
+# --------------------------------------------------- scan -> profile suggestion
+_VALID_TYPES = {"normal", "dry", "oily", "combination", "sensitive"}
+_TYPE_ALIASES = {"mixed": "combination", "combo": "combination"}
+
+
+def suggest_skin_type(whole: str | None, zones: dict[str, str]) -> str | None:
+    """Map YouCam's skin type (+ T/U-zone readings) onto the app's skin types."""
+    t, u = (zones.get("t_zone") or "").lower(), (zones.get("u_zone") or "").lower()
+    if t and u and t != u and {t, u} & {"oily", "dry"}:
+        return "combination"  # zones disagree in a way that matters
+    if not whole:
+        return None
+    w = _TYPE_ALIASES.get(whole.lower(), whole.lower())
+    return w if w in _VALID_TYPES else None
+
+
+def suggest_concerns(ui: dict[str, int]) -> list[str]:
+    """App concerns whose underlying scan scores are below the flag threshold."""
+    return [c for c, keys in APP_CONCERN_KEYS.items() if c != "sensitive" and flagged(ui, keys)]
 
 
 # ------------------------------------------------------------- mapping
@@ -154,4 +176,7 @@ def map_to_profile(a: YouCamAnalysis) -> SkinProfile:
         skin_type=a.skin_type,
         skin_age=a.skin_age,
         concerns=ui,
+        skin_type_zones=a.skin_type_zones,
+        suggested_skin_type=suggest_skin_type(a.skin_type, a.skin_type_zones),
+        suggested_concerns=suggest_concerns(ui),
     )

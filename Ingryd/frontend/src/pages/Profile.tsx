@@ -10,6 +10,8 @@ export function Profile() {
   const [concerns, setConcerns] = useState<string[]>([])
   const [sensitivities, setSensitivities] = useState<string[]>([])
   const [sensitivityInput, setSensitivityInput] = useState('')
+  const [scanScores, setScanScores] = useState<Record<string, number>>({})
+  const [scannedAt, setScannedAt] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     let cancelled = false
@@ -18,6 +20,8 @@ export function Profile() {
       setSkinType(existing.skin_type)
       setConcerns(existing.concerns)
       setSensitivities(existing.sensitivities)
+      setScanScores(existing.concern_scores ?? {})
+      setScannedAt(existing.scanned_at)
     })
     return () => { cancelled = true }
   }, [])
@@ -70,6 +74,25 @@ export function Profile() {
           ))}
         </div>
       </div>
+
+      {/* Latest scan (read-only) — this is what weights every Fit Score */}
+      {Object.keys(scanScores).length > 0 && (
+        <div className="card flex flex-col gap-4">
+          <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'var(--muted)' }}>
+            From your latest scan{scannedAt ? ` · ${new Date(scannedAt).toLocaleDateString()}` : ''}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(scanScores)
+              .sort((a, b) => a[1] - b[1])
+              .map(([k, v]) => (
+                <span key={k} className="badge-neutral">{k.replace('_v2', '').replace('_', ' ')} · {v}</span>
+              ))}
+          </div>
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+            Lower scores count for more: products that help your weakest areas score higher for you.
+          </p>
+        </div>
+      )}
 
       {/* Concerns */}
       <div className="card flex flex-col gap-4">

@@ -4,6 +4,7 @@ import { analyzeSkin } from '../services/api'
 import { addSkinAnalysisToHistory, getSkinHistory } from '../services/history'
 import type { SkinProfile } from '../types'
 import type { SkinHistoryEntry } from '../services/history'
+import { ApplyToProfile } from '../components/skin/ApplyToProfile'
 
 type PageState = 'idle' | 'camera' | 'preview' | 'loading' | 'result' | 'error'
 
@@ -242,6 +243,8 @@ export function SkinAnalysis() {
               </div>
             </div>
           )}
+
+          <ApplyToProfile scan={profile} />
 
           <button onClick={reset} className="btn-outline self-start">← Analyze Another Photo</button>
         </div>

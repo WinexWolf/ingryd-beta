@@ -33,6 +33,9 @@ export interface SkinPreferences {
   skin_type?: SkinType
   concerns: string[]
   sensitivities: string[]
+  /** Latest scan: YouCam ui_score per concern (0-100, higher = healthier). */
+  concern_scores?: Record<string, number>
+  scanned_at?: string
 }
 
 export const SKIN_TYPES: { value: SkinType; label: string }[] = [
@@ -80,6 +83,14 @@ export interface SkinProfile {
   overall_score: number
   recommended_ingredients: string[]
   notes: string[]
+  // Present on YouCam-powered scans; absent on older (heuristic) scans.
+  source?: 'youcam' | 'heuristic'
+  skin_type?: string | null
+  skin_age?: number | null
+  concerns?: Record<string, number>
+  skin_type_zones?: Record<string, string>
+  suggested_skin_type?: string | null
+  suggested_concerns?: string[]
 }
 
 export interface RoutineProductInput {

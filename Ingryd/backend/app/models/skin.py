@@ -19,6 +19,10 @@ class SkinProfile(BaseModel):
     skin_type: str | None = None       # e.g. "Normal", "Oily", "Dry", "Combination"
     skin_age: int | None = None
     concerns: dict[str, int] = {}      # YouCam ui_score per concern, 0-100, higher = healthier
+    skin_type_zones: dict[str, str] = {}  # {"t_zone": "Oily", "u_zone": "Normal"}
+    # What "Apply to my profile" would set, in the app's own vocabulary (see Profile page)
+    suggested_skin_type: str | None = None
+    suggested_concerns: list[str] = []
 
 
 class SkinAnalysisRequest(BaseModel):
