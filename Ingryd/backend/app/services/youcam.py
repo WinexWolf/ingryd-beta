@@ -23,9 +23,10 @@ ACCEPTED_TYPES = {"image/jpeg", "image/png"}
 class YouCamError(Exception):
     """Raised for any YouCam failure. Message is safe to log; never contains the key."""
 
-    def __init__(self, message: str, *, retryable: bool = False):
+    def __init__(self, message: str, *, retryable: bool = False, user_fixable: bool = False):
         super().__init__(message)
         self.retryable = retryable
+        self.user_fixable = user_fixable  # True = the photo is the problem; tell the user
 
 
 class ConcernScore(BaseModel):
@@ -77,7 +78,7 @@ def parse_result(payload: dict) -> YouCamAnalysis:
             )
 
     if not concerns:
-        raise YouCamError("No usable skin metrics were returned — try a clearer photo")
+        raise YouCamError("No usable skin metrics were returned — try a clearer photo", user_fixable=True)
     return YouCamAnalysis(
         concerns=concerns, skin_type=skin_type, skin_type_zones=zones,
         overall_score=overall, skin_age=skin_age,
@@ -142,7 +143,7 @@ async def analyze_image(image_bytes: bytes, content_type: str = "image/jpeg") ->
                 if status == "success":
                     return parse_result(res)
                 if status == "error":
-                    raise YouCamError("Skin analysis failed — try a clearer, front-facing photo")
+                    raise YouCamError("Skin analysis failed — try a clearer, front-facing photo", user_fixable=True)
             raise YouCamError("Skin analysis timed out", retryable=True)
         except (KeyError, IndexError, TypeError):
             raise YouCamError("Unexpected response from skin analysis service")

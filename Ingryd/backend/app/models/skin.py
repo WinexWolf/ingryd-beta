@@ -14,6 +14,11 @@ class SkinProfile(BaseModel):
     overall_score: int
     recommended_ingredients: list[str]
     notes: list[str]
+    # Added for YouCam-powered analysis. All optional so older saved scans still load.
+    source: str = "heuristic"          # "youcam" | "heuristic"
+    skin_type: str | None = None       # e.g. "Normal", "Oily", "Dry", "Combination"
+    skin_age: int | None = None
+    concerns: dict[str, int] = {}      # YouCam ui_score per concern, 0-100, higher = healthier
 
 
 class SkinAnalysisRequest(BaseModel):
