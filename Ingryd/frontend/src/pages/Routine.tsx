@@ -290,7 +290,7 @@ export function Routine() {
         </div>
       </div>
 
-      <RoutineFitPanel products={products} />
+      <RoutineFitPanel products={products} onAdded={(item) => { setResult(null); setProducts((prev) => [...prev, item]) }} />
 
       {products.length >= 2 && (
         <button onClick={runCheck} disabled={checking} className="btn-primary self-start">

@@ -5,7 +5,7 @@ import type { RoutineFitResponse, RoutineProductInput } from '../../types'
 import { ProductPickCard } from '../recommend/ProductPickCard'
 
 /** Your routine measured against your latest scan: what helps, what hurts, what's missing. */
-export function RoutineFitPanel({ products }: { products: RoutineProductInput[] }) {
+export function RoutineFitPanel({ products, onAdded }: { products: RoutineProductInput[]; onAdded?: (item: RoutineProductInput) => void }) {
   const [data, setData] = useState<RoutineFitResponse | null>(null)
   const [failed, setFailed] = useState(false)
   // products change identity on every add/remove; key on what actually matters
@@ -66,7 +66,7 @@ export function RoutineFitPanel({ products }: { products: RoutineProductInput[] 
               {g.suggestion && (
                 <>
                   <p className="text-[10px] tracking-[0.25em] uppercase" style={{ color: 'var(--muted)' }}>Try adding</p>
-                  <ProductPickCard pick={g.suggestion} />
+                  <ProductPickCard pick={g.suggestion} onAdded={onAdded} />
                 </>
               )}
             </div>
