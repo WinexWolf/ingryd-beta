@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { BarcodeScanner } from '../components/scanner/BarcodeScanner'
 import { ScanResult } from '../components/scanner/ScanResult'
 import { fetchProductByBarcode } from '../services/api'
@@ -70,6 +71,10 @@ export function Scanner() {
               Test with: <code style={{ color: 'var(--secondary)' }}>3606000537750</code> (CeraVe Foaming Cleanser)
             </p>
           </div>
+          <p className="text-sm text-center" style={{ color: 'var(--muted)' }}>
+            No barcode, or not in our catalog?{' '}
+            <Link to="/scan-ingredients" className="underline" style={{ color: 'var(--primary)' }}>Scan its ingredient list instead →</Link>
+          </p>
         </>
       )}
 
@@ -87,7 +92,17 @@ export function Scanner() {
       )}
 
       {pageState === 'result' && product && (
-        <ScanResult product={product} onReset={handleReset} />
+        <>
+          <ScanResult product={product} onReset={handleReset} />
+          {(!product.found || !product.score) && (
+            <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ border: '1px solid var(--primary)' }}>
+              <p className="text-sm" style={{ color: 'var(--fg)' }}>
+                {product.found ? "We don't have this product's ingredients yet." : "We couldn't find this barcode."} You can photograph the ingredient list on the back and we'll score it.
+              </p>
+              <Link to="/scan-ingredients" className="btn-primary flex-shrink-0 text-center">Scan ingredient list →</Link>
+            </div>
+          )}
+        </>
       )}
 
       {pageState === 'error' && (

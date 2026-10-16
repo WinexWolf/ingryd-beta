@@ -8,7 +8,6 @@ import { useAuth } from '../../services/AuthContext'
 
 const links = [
   { to: '/scan', label: 'Scan', active: true },
-  { to: '/scan-ingredients', label: 'Scan Ingredients', active: true },
   { to: '/skin-analysis', label: 'Skin Analysis', active: true },
   { to: '/search', label: 'Products', active: true },
   { to: '/routine', label: 'Routine', active: true },
@@ -64,7 +63,7 @@ export function Navbar() {
         {/* Desktop nav + toggle */}
         <div className="hidden sm:flex items-center gap-0">
           {links.map((link) => {
-            const isActive = pathname === link.to
+            const isActive = pathname === link.to || (link.to === '/scan' && pathname === '/scan-ingredients')
             return (
               <div key={link.to} className="relative">
                 <Link
@@ -136,7 +135,7 @@ export function Navbar() {
           style={{ backgroundColor: 'var(--bg)', borderTop: '1px solid var(--rim)' }}
         >
           {links.map((link) => {
-            const isActive = pathname === link.to
+            const isActive = pathname === link.to || (link.to === '/scan' && pathname === '/scan-ingredients')
             return (
               <Link
                 key={link.to}

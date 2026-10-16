@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { Camera, Upload } from 'lucide-react'
 import { createWorker } from 'tesseract.js'
 import { analyzeIngredients } from '../services/api'
@@ -182,6 +183,7 @@ export function ScanIngredients() {
       <div className="pb-6" style={{ borderBottom: '1px solid var(--rim)' }}>
         <p className="text-[10px] tracking-[0.4em] uppercase mb-2" style={{ color: 'var(--muted)' }}>No barcode? No problem</p>
         <h1 className="font-display text-5xl" style={{ color: 'var(--fg)' }}>Scan Ingredients</h1>
+        <Link to="/scan" className="text-xs underline inline-block mt-3" style={{ color: 'var(--primary)' }}>← Back to barcode scan</Link>
         <p className="text-sm mt-4 leading-relaxed" style={{ color: 'var(--muted)' }}>
           Photograph the ingredients panel directly — works for products without a scannable barcode.
           Text extraction happens right on your device. You'll get a chance to fix any misreads before we analyze it.
