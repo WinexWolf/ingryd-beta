@@ -72,7 +72,10 @@ export async function addSkinAnalysisToHistory(profile: SkinProfile): Promise<vo
   const userId = await currentUserId()
   if (!userId) return
 
-  await supabase.from('skin_analysis_history').insert({ user_id: userId, profile })
+  // Mask URLs are signed and expire within a day, so they are never stored.
+  const { masks: _masks, ...storable } = profile
+  void _masks
+  await supabase.from('skin_analysis_history').insert({ user_id: userId, profile: storable })
 }
 
 // ── Routine (current AM/PM product list) ────────────────────

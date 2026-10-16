@@ -7,13 +7,14 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 from PIL import Image, ImageOps
 
-from app.models.skin import SkinMetric, SkinProfile
-from app.services.concerns import APP_CONCERN_KEYS, flagged
+from app.models.skin import ConcernArea, SkinMetric, SkinProfile
+from app.services.concerns import APP_CONCERN_KEYS, FLAG_BELOW, flagged
 from app.services.youcam import YouCamAnalysis
 
 MIN_SIDE = 480          # YouCam requires short side >= 480px
 MAX_SIDE = 1600         # plenty for analysis; keeps uploads small
-ATTENTION_BELOW = 70    # a concern scoring under this gets recommendations/notes
+ATTENTION_BELOW = FLAG_BELOW  # one threshold everywhere: notes, ingredients, suggested concerns
+WATCH_BELOW = 85              # between the two: fine, but the weakest spot worth keeping an eye on
 
 
 # ---------------------------------------------------------------- photo prep
@@ -118,6 +119,32 @@ NOTES = {
 }
 
 
+TITLE = {
+    "moisture": "Hydration", "oiliness": "Oil balance", "redness": "Redness",
+    "acne": "Breakouts", "pore": "Pores", "texture": "Texture", "wrinkle": "Fine lines",
+    "age_spot": "Dark spots", "dark_circle_v2": "Dark circles",
+}
+
+
+def _status(score: int) -> str:
+    return "attention" if score < ATTENTION_BELOW else "watch" if score < WATCH_BELOW else "good"
+
+
+def build_areas(ui: dict[str, int]) -> list[ConcernArea]:
+    """Every scanned concern, weakest first, each with a tip that fits its status."""
+    out: list[ConcernArea] = []
+    for k in sorted((k for k in ui if k in TITLE), key=lambda k: ui[k]):
+        st, ings = _status(ui[k]), RECOMMEND.get(k, [])
+        if st == "attention":
+            tip = NOTES[k]
+        elif st == "watch":
+            tip = f"Your {TITLE[k].lower()} score is okay but not your strongest — {ings[0]} helps keep it from slipping."
+        else:
+            tip = f"{TITLE[k]} looks healthy — nothing to change here."
+        out.append(ConcernArea(key=k, label=TITLE[k], score=ui[k], status=st, tip=tip, ingredients=ings[:3]))
+    return out
+
+
 def _label_hydration(s: int) -> str:
     return "Dehydrated" if s < 40 else "Balanced" if s < 70 else "Well hydrated"
 
@@ -179,4 +206,6 @@ def map_to_profile(a: YouCamAnalysis) -> SkinProfile:
         skin_type_zones=a.skin_type_zones,
         suggested_skin_type=suggest_skin_type(a.skin_type, a.skin_type_zones),
         suggested_concerns=suggest_concerns(ui),
+        areas=build_areas(ui),
+        masks={k: v.mask_url for k, v in a.concerns.items() if v.mask_url},
     )

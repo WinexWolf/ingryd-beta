@@ -47,7 +47,7 @@ def test_mapping_inverts_issue_scores_and_flags_worst_concern():
     assert p.oiliness.score == 22                  # inverted: higher = oilier
     assert p.redness.score == 10 and p.redness.label == "Calm"
     assert p.concerns["dark_circle_v2"] == 67
-    assert p.recommended_ingredients[0] == "Caffeine"   # only dark circles < 70
+    assert p.recommended_ingredients[0] == "Caffeine"   # only dark circles < 75
     assert any("T-zone" in n for n in p.notes)
 
 
@@ -119,3 +119,35 @@ def test_route_uses_fallback_when_cap_reached(monkeypatch):
     monkeypatch.setenv("YOUCAM_DAILY_CAP", "0")
     r = client.post("/api/skin/analyze", json={"image_base64": _photo()})
     assert r.json()["profile"]["source"] == "heuristic"
+
+
+# ---- results screen v2: areas + masks
+def test_areas_are_weakest_first_with_status_and_tips():
+    p = skin_youcam.map_to_profile(_analysis())
+    assert len(p.areas) == 9
+    assert [a.score for a in p.areas] == sorted(a.score for a in p.areas)
+    first = p.areas[0]
+    assert first.key == "dark_circle_v2" and first.status == "attention"
+    assert first.ingredients[0] == "Caffeine" and "darkness" in first.tip.lower()
+    assert {a.status for a in p.areas} == {"attention", "watch", "good"}
+
+
+def test_areas_still_exist_when_everything_is_healthy():
+    p = skin_youcam.map_to_profile(_analysis(dark_circle_v2=95, pore=95, acne=95, moisture=95,
+                                             oiliness=95, wrinkle=95, age_spot=95))
+    assert len(p.areas) == 9 and all(a.status == "good" for a in p.areas[:3])
+    assert "nothing to change" in p.areas[0].tip
+
+
+def test_threshold_is_consistent_between_notes_and_suggested_concerns():
+    # pore 73 and dark circles 71 used to be "healthy" in notes yet flagged for the profile
+    p = skin_youcam.map_to_profile(_analysis(pore=73, dark_circle_v2=71, acne=99))
+    assert "acne" in p.suggested_concerns
+    assert not any("healthy across the board" in n for n in p.notes)
+
+
+def test_masks_are_passed_through():
+    a = _analysis()
+    a.concerns["pore"].mask_url = "https://example.com/pore.png?sig=1"
+    p = skin_youcam.map_to_profile(a)
+    assert p.masks == {"pore": "https://example.com/pore.png?sig=1"}

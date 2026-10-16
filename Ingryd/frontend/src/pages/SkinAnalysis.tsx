@@ -5,6 +5,10 @@ import { addSkinAnalysisToHistory, getSkinHistory } from '../services/history'
 import type { SkinProfile } from '../types'
 import type { SkinHistoryEntry } from '../services/history'
 import { ApplyToProfile } from '../components/skin/ApplyToProfile'
+import { ScanOverlay } from '../components/skin/ScanOverlay'
+import { FocusAreas } from '../components/skin/FocusAreas'
+import { ConcernGrid } from '../components/skin/ConcernGrid'
+import { NextSteps } from '../components/skin/NextSteps'
 
 type PageState = 'idle' | 'camera' | 'preview' | 'loading' | 'result' | 'error'
 
@@ -43,6 +47,8 @@ export function SkinAnalysis() {
   const [error, setError] = useState<string | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [history, setHistory] = useState<SkinHistoryEntry[]>([])
+  const [selected, setSelected] = useState<string | null>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -118,6 +124,7 @@ export function SkinAnalysis() {
     stopCamera()
     setImageData(null)
     setProfile(null)
+    setSelected(null)
     setError(null)
     setCameraError(null)
     setPageState('idle')
@@ -208,47 +215,84 @@ export function SkinAnalysis() {
         </div>
       )}
 
-      {pageState === 'result' && profile && (
+      {pageState === 'result' && profile && (() => {
+        const areas = profile.areas ?? []
+        const masks = profile.masks ?? {}
+        const isScan = profile.source === 'youcam' && areas.length > 0
+        const hasMask = (k: string) => !!imageData && !!masks[k]
+        const show = (k: string) => {
+          setSelected(k)
+          overlayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+        return (
         <div className="flex flex-col gap-8">
-          <div className="p-8 flex flex-col items-center gap-4" style={{ border: '1px solid var(--rim)' }}>
+          <div className="p-8 flex flex-col items-center gap-3" style={{ border: '1px solid var(--rim)' }}>
             <span className="font-display text-6xl" style={{ color: 'var(--fg)' }}>{profile.overall_score}</span>
             <span className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Overall skin score</span>
+            {isScan && (
+              <p className="text-xs text-center mt-2" style={{ color: 'var(--muted)' }}>
+                {[
+                  profile.skin_type && `${profile.skin_type} skin`,
+                  profile.skin_type_zones?.t_zone && profile.skin_type_zones?.u_zone &&
+                    profile.skin_type_zones.t_zone !== profile.skin_type_zones.u_zone &&
+                    `T-zone ${profile.skin_type_zones.t_zone.toLowerCase()} · cheeks ${profile.skin_type_zones.u_zone.toLowerCase()}`,
+                  profile.skin_age ? `skin age ${profile.skin_age}` : null,
+                ].filter(Boolean).join(' · ')}
+              </p>
+            )}
           </div>
 
-          <div className="p-6 flex flex-col gap-6" style={{ border: '1px solid var(--rim)' }}>
-            <MetricBar label="Hydration" score={profile.hydration.score} tag={profile.hydration.label} />
-            <MetricBar label="Oiliness" score={profile.oiliness.score} tag={profile.oiliness.label} higherIsWorse />
-            <MetricBar label="Redness" score={profile.redness.score} tag={profile.redness.label} higherIsWorse />
-            <MetricBar label="Texture" score={profile.texture.score} tag={profile.texture.label} higherIsWorse />
-          </div>
-
-          {profile.notes.length > 0 && (
-            <div className="p-6" style={{ border: '1px solid var(--rim)' }}>
-              <p className="text-[10px] tracking-[0.3em] uppercase mb-4" style={{ color: 'var(--muted)' }}>Notes</p>
-              <div className="flex flex-col gap-2">
-                {profile.notes.map((n, i) => (
-                  <p key={i} className="text-sm leading-relaxed" style={{ color: 'var(--fg)' }}>• {n}</p>
-                ))}
+          {isScan ? (
+            <>
+              {imageData && Object.keys(masks).length > 0 && (
+                <div ref={overlayRef}>
+                  <ScanOverlay photo={imageData} masks={masks} areas={areas} selected={selected} onSelect={setSelected} />
+                </div>
+              )}
+              <FocusAreas areas={areas} onShow={show} hasMask={hasMask} />
+              <ConcernGrid areas={areas} selected={selected} onSelect={show} hasMask={hasMask} />
+            </>
+          ) : (
+            <>
+              <div className="p-6 flex flex-col gap-6" style={{ border: '1px solid var(--rim)' }}>
+                <MetricBar label="Hydration" score={profile.hydration.score} tag={profile.hydration.label} />
+                <MetricBar label="Oiliness" score={profile.oiliness.score} tag={profile.oiliness.label} higherIsWorse />
+                <MetricBar label="Redness" score={profile.redness.score} tag={profile.redness.label} higherIsWorse />
+                <MetricBar label="Texture" score={profile.texture.score} tag={profile.texture.label} higherIsWorse />
               </div>
-            </div>
-          )}
 
-          {profile.recommended_ingredients.length > 0 && (
-            <div className="p-6" style={{ border: '1px solid var(--moss)', backgroundColor: 'rgba(143,153,81,0.05)' }}>
-              <p className="text-[10px] tracking-[0.3em] uppercase mb-4" style={{ color: 'var(--moss)' }}>Look for these ingredients</p>
-              <div className="flex flex-wrap gap-2">
-                {profile.recommended_ingredients.map((ing) => (
-                  <span key={ing} className="badge-beneficial">{ing}</span>
-                ))}
-              </div>
-            </div>
+              {profile.notes.length > 0 && (
+                <div className="p-6" style={{ border: '1px solid var(--rim)' }}>
+                  <p className="text-[10px] tracking-[0.3em] uppercase mb-4" style={{ color: 'var(--muted)' }}>Notes</p>
+                  <div className="flex flex-col gap-2">
+                    {profile.notes.map((n, i) => (
+                      <p key={i} className="text-sm leading-relaxed" style={{ color: 'var(--fg)' }}>• {n}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {profile.recommended_ingredients.length > 0 && (
+                <div className="p-6" style={{ border: '1px solid var(--moss)', backgroundColor: 'rgba(143,153,81,0.05)' }}>
+                  <p className="text-[10px] tracking-[0.3em] uppercase mb-4" style={{ color: 'var(--moss)' }}>Look for these ingredients</p>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.recommended_ingredients.map((ing) => (
+                      <span key={ing} className="badge-beneficial">{ing}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           <ApplyToProfile scan={profile} />
 
+          <NextSteps />
+
           <button onClick={reset} className="btn-outline self-start">← Analyze Another Photo</button>
         </div>
-      )}
+        )
+      })()}
 
       {history.length > 1 && (
         <div className="pt-4" style={{ borderTop: '1px solid var(--rim)' }}>

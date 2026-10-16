@@ -75,6 +75,15 @@ export interface SkinMetric {
   label: string
 }
 
+export interface ConcernArea {
+  key: string
+  label: string
+  score: number // 0-100, higher = healthier
+  status: 'attention' | 'watch' | 'good'
+  tip: string
+  ingredients: string[]
+}
+
 export interface SkinProfile {
   hydration: SkinMetric
   oiliness: SkinMetric
@@ -91,6 +100,9 @@ export interface SkinProfile {
   skin_type_zones?: Record<string, string>
   suggested_skin_type?: string | null
   suggested_concerns?: string[]
+  areas?: ConcernArea[]
+  // Signed overlay URLs that expire in ~24h. Display-only: never saved to history.
+  masks?: Record<string, string>
 }
 
 export interface RoutineProductInput {
