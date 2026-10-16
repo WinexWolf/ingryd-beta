@@ -1,8 +1,6 @@
 """Glue between the app and YouCam: photo prep, usage cap, result -> SkinProfile."""
 import base64
 import io
-import os
-from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from PIL import Image, ImageOps
@@ -37,39 +35,6 @@ def prepare_image(image_base64: str) -> bytes:
     out = io.BytesIO()
     img.save(out, format="JPEG", quality=90)  # re-encoding also strips EXIF/location data
     return out.getvalue()
-
-
-# ------------------------------------------------------------- usage cap
-# In-memory and per-process: fine for a single Render instance. It resets on restart,
-# so treat it as a safety net rather than a billing guarantee.
-_usage = {"day": "", "n": 0}
-
-
-def _today() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-
-def daily_cap() -> int:
-    try:
-        return int(os.environ.get("YOUCAM_DAILY_CAP", "60"))
-    except ValueError:
-        return 60
-
-
-def reserve_call() -> bool:
-    """Take one slot from today's budget. Returns False if the cap is reached."""
-    if _usage["day"] != _today():
-        _usage["day"], _usage["n"] = _today(), 0
-    if _usage["n"] >= daily_cap():
-        return False
-    _usage["n"] += 1
-    return True
-
-
-def release_call() -> None:
-    """Give the slot back when a call failed (YouCam only charges on success)."""
-    if _usage["n"] > 0:
-        _usage["n"] -= 1
 
 
 # --------------------------------------------------- scan -> profile suggestion

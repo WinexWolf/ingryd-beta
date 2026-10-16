@@ -7,11 +7,13 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.routes import skin as skin_route
-from app.services import skin_youcam
+from app.services import skin_youcam, usage
+from app.services.auth import current_user
 from app.services.youcam import ConcernScore, YouCamAnalysis, YouCamError
 
 app = FastAPI()
 app.include_router(skin_route.router, prefix="/api")
+app.dependency_overrides[current_user] = lambda: "user-1"
 client = TestClient(app)
 
 
@@ -35,8 +37,11 @@ def _analysis(**over):
 @pytest.fixture(autouse=True)
 def _reset(monkeypatch):
     monkeypatch.setenv("YOUCAM_API_KEY", "test-key")
-    monkeypatch.setenv("YOUCAM_DAILY_CAP", "5")
-    skin_youcam._usage.update(day="", n=0)
+    monkeypatch.setenv("YOUCAM_USER_DAILY_CAP", "5")
+    monkeypatch.setenv("YOUCAM_DAILY_CAP", "50")
+    monkeypatch.setenv("YOUCAM_TOTAL_CAP", "500")
+    monkeypatch.setattr(usage, "get_supabase", lambda: None)
+    usage.reset_for_tests()
 
 
 # ---- mapping
@@ -78,12 +83,35 @@ def test_prepare_downscales_large_photo():
     assert max(out.size) <= skin_youcam.MAX_SIDE
 
 
-# ---- cap
-def test_cap_blocks_after_limit_and_release_gives_back():
-    assert all(skin_youcam.reserve_call() for _ in range(5))
-    assert not skin_youcam.reserve_call()
-    skin_youcam.release_call()
-    assert skin_youcam.reserve_call()
+# ---- caps
+def test_user_cap_blocks_after_limit_and_release_gives_back():
+    for _ in range(5):
+        usage.reserve("user-1")
+    with pytest.raises(usage.LimitReached) as e:
+        usage.reserve("user-1")
+    assert e.value.kind == "user"
+    usage.release("user-1")
+    usage.reserve("user-1")
+
+
+def test_one_users_cap_does_not_block_another():
+    for _ in range(5):
+        usage.reserve("a")
+    usage.reserve("b")
+
+
+def test_day_and_total_caps(monkeypatch):
+    monkeypatch.setenv("YOUCAM_DAILY_CAP", "2")
+    usage.reserve("a"); usage.reserve("b")
+    with pytest.raises(usage.LimitReached) as e:
+        usage.reserve("c")
+    assert e.value.kind == "day"
+    usage.reset_for_tests()
+    monkeypatch.setenv("YOUCAM_DAILY_CAP", "50"); monkeypatch.setenv("YOUCAM_TOTAL_CAP", "1")
+    usage.reserve("a")
+    with pytest.raises(usage.LimitReached) as e:
+        usage.reserve("b")
+    assert e.value.kind == "total"
 
 
 # ---- route
@@ -99,7 +127,7 @@ def test_route_falls_back_when_youcam_down_and_refunds(monkeypatch):
     monkeypatch.setattr(skin_route, "analyze_image", boom)
     r = client.post("/api/skin/analyze", json={"image_base64": _photo()})
     assert r.status_code == 200 and r.json()["profile"]["source"] == "heuristic"
-    assert skin_youcam._usage["n"] == 0
+    assert usage._mem.get(("user-1", usage._today()), 0) == 0
 
 
 def test_route_422_when_photo_is_the_problem(monkeypatch):
@@ -115,10 +143,34 @@ def test_route_without_key_uses_heuristic(monkeypatch):
     assert r.status_code == 200 and r.json()["profile"]["source"] == "heuristic"
 
 
-def test_route_uses_fallback_when_cap_reached(monkeypatch):
-    monkeypatch.setenv("YOUCAM_DAILY_CAP", "0")
+def test_route_429_when_user_cap_reached_and_503_when_service_cap_reached(monkeypatch):
+    monkeypatch.setenv("YOUCAM_USER_DAILY_CAP", "0")
     r = client.post("/api/skin/analyze", json={"image_base64": _photo()})
-    assert r.json()["profile"]["source"] == "heuristic"
+    assert r.status_code == 429 and "sample" in r.json()["detail"].lower()
+    monkeypatch.setenv("YOUCAM_USER_DAILY_CAP", "5"); monkeypatch.setenv("YOUCAM_DAILY_CAP", "0")
+    r = client.post("/api/skin/analyze", json={"image_base64": _photo()})
+    assert r.status_code == 503
+
+
+def test_route_requires_sign_in():
+    saved = app.dependency_overrides.pop(current_user)
+    try:
+        assert client.post("/api/skin/analyze", json={"image_base64": _photo()}).status_code == 401
+    finally:
+        app.dependency_overrides[current_user] = saved
+
+
+def test_sample_scan_is_free_unauthenticated_and_labelled(monkeypatch):
+    saved = app.dependency_overrides.pop(current_user)
+    try:
+        async def boom(b, ct): raise AssertionError("must not call YouCam")
+        monkeypatch.setattr(skin_route, "analyze_image", boom)
+        r = client.post("/api/skin/sample")
+        p = r.json()["profile"]
+        assert r.status_code == 200 and p["is_sample"] is True and p["areas"] and p["masks"] == {}
+        assert usage._mem == {}
+    finally:
+        app.dependency_overrides[current_user] = saved
 
 
 # ---- results screen v2: areas + masks

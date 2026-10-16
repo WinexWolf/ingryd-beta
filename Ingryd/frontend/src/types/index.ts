@@ -136,6 +136,8 @@ export interface SkinProfile {
   suggested_skin_type?: string | null
   suggested_concerns?: string[]
   areas?: ConcernArea[]
+  is_sample?: boolean // canned example scan, not the user's skin
+  demo?: boolean // seeded by "Load demo data"
   // What was on the user's shelf when this scan was taken (saved with the scan, no ingredients).
   routine_snapshot?: { name: string; brand?: string; slot: 'am' | 'pm' }[]
   // Signed overlay URLs that expire in ~24h. Display-only: never saved to history.

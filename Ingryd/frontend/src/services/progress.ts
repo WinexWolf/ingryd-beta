@@ -19,6 +19,7 @@ export interface Progress {
   concerns: ConcernDelta[]           // biggest movers first
   steady: number                     // how many concerns stayed inside the band
   routine: { added: string[]; removed: string[] } | null
+  demo: boolean
 }
 
 interface Scan { timestamp: number; profile: SkinProfile }
@@ -56,12 +57,18 @@ export function computeProgress(current: Scan, previous: Scan): Progress | null 
   return {
     days: Math.max(0, Math.round((current.timestamp - previous.timestamp) / 86_400_000)),
     overall: { from: previous.profile.overall_score, to: current.profile.overall_score, delta, trend: trendOf(delta) },
-    concerns, steady, routine,
+    concerns, steady, routine, demo: !!current.profile.demo,
   }
 }
 
-/** The two most recent comparable scans from a newest-first history list. */
-export function latestPair<T extends Scan>(history: T[]): [T, T] | null {
+/** The two most recent comparable scans from a newest-first history list. Real scans are only
+ *  ever compared with real scans, and demo scans with demo scans. With `fallbackToDemo`, a user
+ *  whose real scans can't be compared yet (Home) is shown the demo pair instead, labelled as demo. */
+export function latestPair<T extends Scan>(history: T[], fallbackToDemo = false): [T, T] | null {
   const youcam = history.filter(isComparable)
-  return youcam.length >= 2 ? [youcam[0], youcam[1]] : null
+  if (youcam.length < 2) return null
+  const same = youcam.filter((s) => !!s.profile.demo === !!youcam[0].profile.demo)
+  if (same.length >= 2) return [same[0], same[1]]
+  const demo = youcam.filter((s) => s.profile.demo)
+  return fallbackToDemo && demo.length >= 2 ? [demo[0], demo[1]] : null
 }

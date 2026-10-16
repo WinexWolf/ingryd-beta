@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { Camera, Upload } from 'lucide-react'
-import { analyzeSkin } from '../services/api'
+import { analyzeSkin, analyzeSample } from '../services/api'
 import { addSkinAnalysisToHistory, getSkinHistory, getRoutine } from '../services/history'
 import { computeProgress, latestPair } from '../services/progress'
 import { ProgressCard } from '../components/skin/ProgressCard'
@@ -14,6 +14,17 @@ import { NextSteps } from '../components/skin/NextSteps'
 import { PicksForYou } from '../components/recommend/PicksForYou'
 
 type PageState = 'idle' | 'camera' | 'preview' | 'loading' | 'result' | 'error'
+
+const CONSENT_KEY = 'ingryd-scan-consent'
+const readConsent = () => { try { return localStorage.getItem(CONSENT_KEY) === '1' } catch { return false } }
+const rememberConsent = () => { try { localStorage.setItem(CONSENT_KEY, '1') } catch { /* fine: asked again next time */ } }
+
+const TIPS = [
+  'Face a window or soft daylight — avoid harsh overhead light and strong shadows.',
+  'No makeup, hair pulled back, neutral expression.',
+  'Hold the camera at eye level, about an arm\'s length away, with your whole face in frame.',
+  'No filters or beauty mode, and wipe the lens first.',
+]
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -51,6 +62,7 @@ export function SkinAnalysis() {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [history, setHistory] = useState<SkinHistoryEntry[]>([])
   const [selected, setSelected] = useState<string | null>(null)
+  const [consent, setConsent] = useState(readConsent)
   const overlayRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -107,8 +119,24 @@ export function SkinAnalysis() {
     setPageState('preview')
   }
 
+  const runSample = async () => {
+    stopCamera()
+    setPageState('loading')
+    setError(null)
+    try {
+      setProfile(await analyzeSample())
+      setImageData(null)
+      setSelected(null)
+      setPageState('result') // deliberately not saved to history: it isn't the user's skin
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setPageState('error')
+    }
+  }
+
   const runAnalysis = async () => {
-    if (!imageData) return
+    if (!imageData || !consent) return
+    rememberConsent()
     setPageState('loading')
     setError(null)
     try {
@@ -170,6 +198,15 @@ export function SkinAnalysis() {
             onChange={handleFile}
             className="hidden"
           />
+          <div className="text-left w-full max-w-md pt-4" style={{ borderTop: '1px solid var(--rim)' }}>
+            <p className="text-[10px] tracking-[0.3em] uppercase mb-3" style={{ color: 'var(--muted)' }}>For an accurate read</p>
+            <ul className="flex flex-col gap-1.5">
+              {TIPS.map((t) => <li key={t} className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>• {t}</li>)}
+            </ul>
+          </div>
+          <button onClick={runSample} className="text-xs underline" style={{ color: 'var(--primary)' }}>
+            No photo handy? See a sample scan
+          </button>
         </div>
       )}
 
@@ -198,8 +235,16 @@ export function SkinAnalysis() {
           <div className="p-2 flex justify-center" style={{ border: '1px solid var(--rim)', backgroundColor: 'var(--surface)' }}>
             <img src={imageData} alt="Preview" className="max-h-96 object-contain" />
           </div>
+          <label className="flex items-start gap-3 text-xs leading-relaxed cursor-pointer" style={{ color: 'var(--muted)' }}>
+            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5" />
+            <span>
+              I agree to send this photo to our skin-analysis partner (YouCam by Perfect Corp) to be analyzed. Ingryd doesn't keep the photo —
+              it's re-encoded without location data, analyzed, and deleted by the partner within 24 hours. Your scores are saved to your account.
+              This is not a medical device or diagnosis.
+            </span>
+          </label>
           <div className="flex gap-3">
-            <button onClick={runAnalysis} className="btn-primary flex-1">Analyze Skin</button>
+            <button onClick={runAnalysis} disabled={!consent} className="btn-primary flex-1">Analyze Skin</button>
             <button onClick={reset} className="btn-outline">Retake</button>
           </div>
         </div>
@@ -219,7 +264,10 @@ export function SkinAnalysis() {
         <div className="p-10 text-center" style={{ border: '1px solid rgba(185,28,28,0.4)' }}>
           <p className="text-[10px] tracking-widest uppercase text-red-700 mb-3">Analysis failed</p>
           <p className="text-sm mb-8" style={{ color: 'var(--muted)' }}>{error}</p>
-          <button onClick={reset} className="btn-outline">Try Again</button>
+          <div className="flex flex-wrap justify-center gap-3">
+            <button onClick={reset} className="btn-outline">Try Again</button>
+            <button onClick={runSample} className="btn-ghost">See a sample scan</button>
+          </div>
         </div>
       )}
 
@@ -227,6 +275,7 @@ export function SkinAnalysis() {
         const areas = profile.areas ?? []
         const masks = profile.masks ?? {}
         const isScan = profile.source === 'youcam' && areas.length > 0
+        const sample = !!profile.is_sample
         const hasMask = (k: string) => !!imageData && !!masks[k]
         const show = (k: string) => {
           setSelected(k)
@@ -234,6 +283,11 @@ export function SkinAnalysis() {
         }
         return (
         <div className="flex flex-col gap-8">
+          {sample && (
+            <div className="p-4 text-sm leading-relaxed" style={{ border: '1px solid #a16207', color: 'var(--fg)', backgroundColor: 'rgba(161,98,7,0.08)' }}>
+              <strong>Sample scan.</strong> This is example data, not your skin, and it isn't saved to your history. Scan your own photo for real results.
+            </div>
+          )}
           <div className="p-8 flex flex-col items-center gap-3" style={{ border: '1px solid var(--rim)' }}>
             <span className="font-display text-6xl" style={{ color: 'var(--fg)' }}>{profile.overall_score}</span>
             <span className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Overall skin score</span>
@@ -259,7 +313,7 @@ export function SkinAnalysis() {
               )}
               {(() => {
                 const pair = latestPair(history)
-                const progress = pair ? computeProgress(pair[0], pair[1]) : null
+                const progress = pair && !sample ? computeProgress(pair[0], pair[1]) : null
                 return progress ? <ProgressCard progress={progress} /> : null
               })()}
               <FocusAreas areas={areas} onShow={show} hasMask={hasMask} />

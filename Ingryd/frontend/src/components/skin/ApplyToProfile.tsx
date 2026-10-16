@@ -27,6 +27,11 @@ export function ApplyToProfile({ scan }: { scan: SkinProfile }) {
 
       {(state === 'idle' || state === 'saving' || state === 'error') && (
         <>
+          {scan.is_sample && (
+            <p className="text-xs leading-relaxed" style={{ color: '#a16207' }}>
+              This is a sample scan. Applying it fills your profile with example concerns so you can see personalised Fit Scores — change them any time on the Profile page.
+            </p>
+          )}
           <p className="text-sm leading-relaxed" style={{ color: 'var(--fg)' }}>
             Save this scan to your skin profile{suggestion ? ` (${suggestion})` : ''}. Every product you scan or search will then
             be scored against how severe each concern actually is.

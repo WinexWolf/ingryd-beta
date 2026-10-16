@@ -8,6 +8,7 @@ import type { SkinHistoryEntry } from '../../services/history'
 import type { RoutineFitResponse, RoutineProductInput, SkinPreferences } from '../../types'
 import { ProgressCard } from '../skin/ProgressCard'
 import { PicksForYou } from '../recommend/PicksForYou'
+import { clearDemoData, loadDemoData } from '../../services/demoData'
 import { STATUS_COLOR, STATUS_WORD } from '../skin/statusColor'
 
 const RESCAN_AFTER_DAYS = 14
@@ -39,26 +40,37 @@ export function Hub() {
   const [routine, setRoutine] = useState<RoutineProductInput[] | null>(null)
   const [fit, setFit] = useState<RoutineFitResponse | null>(null)
 
+  const [version, setVersion] = useState(0)
+  const [demoBusy, setDemoBusy] = useState(false)
+
   useEffect(() => {
     let cancelled = false
     Promise.all([getSkinHistory(), getProfile(), getRoutine()]).then(async ([h, p, r]) => {
       if (cancelled) return
-      setHistory(h); setPrefs(p); setRoutine(r)
+      setHistory(h); setPrefs(p); setRoutine(r); setFit(null)
       if (r.length > 0 && p) {
         try { const f = await getRoutineFit(r); if (!cancelled) setFit(f) } catch { /* the panel is optional */ }
       }
     })
     return () => { cancelled = true }
-  }, [])
+  }, [version])
+
+  const toggleDemo = async (on: boolean) => {
+    setDemoBusy(true)
+    if (on) await loadDemoData(); else await clearDemoData()
+    setDemoBusy(false)
+    setVersion((v) => v + 1)
+  }
 
   if (!history || !routine) return <div className="py-16 text-xs tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Loading your skin…</div>
 
   const latest = history.find(isComparable) ?? history[0]
-  const pair = latestPair(history)
+  const pair = latestPair(history, true)
   const progress = pair ? computeProgress(pair[0], pair[1]) : null
   const step = nextStep(history[0], prefs, routine, fit)
   const focus = latest?.profile.areas?.slice(0, 3) ?? []
   const am = routine.filter((p) => p.slot === 'am').length, pm = routine.length - am
+  const hasDemo = history.some((h) => h.profile.demo) || routine.some((r) => r.name.startsWith('(Demo)'))
 
   return (
     <section className="flex flex-col gap-8 pt-4">
@@ -116,7 +128,21 @@ export function Hub() {
 
       {progress && <ProgressCard progress={progress} />}
 
-      {latest && isComparable(latest) && <PicksForYou mode="top" title="Picked for you" />}
+      {latest && isComparable(latest) && <PicksForYou key={version} mode="top" title="Picked for you" />}
+
+      <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ border: '1px dashed var(--rim)' }}>
+        <div>
+          <p className="text-[10px] tracking-[0.3em] uppercase mb-1" style={{ color: 'var(--muted)' }}>Demo data</p>
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>
+            {hasDemo
+              ? 'Example scans and routine products are loaded and labelled "Demo". Your real data is untouched.'
+              : 'Just exploring? Load two earlier example scans and a starter routine to see progress tracking, routine gaps and recommendations right away.'}
+          </p>
+        </div>
+        <button onClick={() => toggleDemo(!hasDemo)} disabled={demoBusy} className="btn-outline flex-shrink-0">
+          {demoBusy ? '…' : hasDemo ? 'Remove demo data' : 'Load demo data'}
+        </button>
+      </div>
     </section>
   )
 }

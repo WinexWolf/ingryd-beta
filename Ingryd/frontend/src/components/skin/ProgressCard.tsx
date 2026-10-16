@@ -14,7 +14,7 @@ export function ProgressCard({ progress }: { progress: Progress }) {
   return (
     <div className="p-6 flex flex-col gap-4" style={{ border: '1px solid var(--rim)' }}>
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'var(--primary)' }}>Since your last scan · {when}</p>
+        <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'var(--primary)' }}>Since your last scan · {when}{progress.demo ? ' · demo data' : ''}</p>
         <p className="font-display text-2xl" style={{ color: COLOR[overall.trend] }}>
           {overall.trend === 'steady' ? '≈' : sign(overall.delta)}
           <span className="text-xs font-sans ml-2" style={{ color: 'var(--muted)' }}>{overall.from} → {overall.to}</span>

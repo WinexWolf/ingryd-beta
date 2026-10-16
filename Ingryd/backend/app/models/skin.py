@@ -37,6 +37,7 @@ class SkinProfile(BaseModel):
     # are the "focus areas", shown even when everything is healthy). `masks` holds signed
     # YouCam overlay URLs that expire in ~24h: show them right away, never store them.
     areas: list[ConcernArea] = []
+    is_sample: bool = False    # canned demo result, not the user's skin
     masks: dict[str, str] = {}
 
 

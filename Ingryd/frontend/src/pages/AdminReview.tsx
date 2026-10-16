@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { useAuth } from '../services/AuthContext'
+import { authHeaders } from '../services/api'
 
 const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || '/api'
 
@@ -49,14 +50,14 @@ export function AdminReview() {
     if (editedCategory[id]) {
       await supabase.from('pending_products').update({ category: editedCategory[id] }).eq('id', id)
     }
-    await fetch(`${API_BASE}/ingredients/review/${id}/approve`, { method: 'POST' })
+    await fetch(`${API_BASE}/ingredients/review/${id}/approve`, { method: 'POST', headers: await authHeaders() })
     await loadPending()
     setBusy(null)
   }
 
   const reject = async (id: string) => {
     setBusy(id)
-    await fetch(`${API_BASE}/ingredients/review/${id}/reject`, { method: 'POST' })
+    await fetch(`${API_BASE}/ingredients/review/${id}/reject`, { method: 'POST', headers: await authHeaders() })
     await loadPending()
     setBusy(null)
   }

@@ -23,12 +23,8 @@ def approve_pending_product(pending_id: str) -> tuple[bool, str]:
     catalog via the same write_back_to_catalog() used by the live barcode
     fallback path, then marks it approved.
 
-    NOTE: this endpoint does not independently verify the caller is an
-    admin — the frontend gates the Approve button behind a profile.is_admin
-    check, but the backend itself trusts whoever calls it with a valid
-    pending_id. Acceptable for a solo-operator beta; would need real JWT
-    verification middleware before this scales beyond one trusted reviewer
-    or gets exposed as a public API.
+    Callers are verified in the route (app.services.auth.require_admin: valid
+    Supabase token + profiles.is_admin), not here.
     """
     supabase = get_supabase()
     if supabase is None:

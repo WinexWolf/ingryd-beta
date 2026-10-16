@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from app.models.ingredients import (
     IngredientAnalyzeRequest, IngredientAnalyzeResponse, ApproveResponse,
     NotifySubmissionRequest, NotifyResponse,
@@ -6,6 +6,7 @@ from app.models.ingredients import (
 from app.models.product import SkinProfile
 from app.services.ingredient_review import analyze_raw_ingredients, approve_pending_product, reject_pending_product
 from app.services.email_notify import send_review_notification
+from app.services.auth import require_admin
 
 router = APIRouter(prefix="/ingredients", tags=["ingredients"])
 
@@ -25,13 +26,13 @@ async def analyze(request: IngredientAnalyzeRequest):
 
 
 @router.post("/review/{pending_id}/approve", response_model=ApproveResponse)
-async def approve(pending_id: str):
+async def approve(pending_id: str, _admin: str = Depends(require_admin)):
     success, message = approve_pending_product(pending_id)
     return ApproveResponse(success=success, message=message)
 
 
 @router.post("/review/{pending_id}/reject", response_model=ApproveResponse)
-async def reject(pending_id: str, notes: str | None = None):
+async def reject(pending_id: str, notes: str | None = None, _admin: str = Depends(require_admin)):
     success, message = reject_pending_product(pending_id, notes)
     return ApproveResponse(success=success, message=message)
 

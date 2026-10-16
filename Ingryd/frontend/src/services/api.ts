@@ -11,6 +11,7 @@ import type {
   RoutineFitResponse,
 } from '../types'
 import { getProfile, profileToQueryParams } from './profile'
+import { supabase } from './supabaseClient'
 
 const BASE = (import.meta as any).env?.VITE_API_BASE_URL || '/api'
 
@@ -70,10 +71,24 @@ export async function getAlternatives(product: ProductResult, limit = 3): Promis
   return handle<AlternativesResponse>(res)
 }
 
+/** The signed-in user's access token, for endpoints that must know who is calling. */
+export async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/** A canned example scan: no photo, no sign-in, no API units. */
+export async function analyzeSample(): Promise<SkinProfile> {
+  const res = await fetch(`${BASE}/skin/sample`, { method: 'POST' })
+  const data = await handle<{ profile: SkinProfile }>(res)
+  return data.profile
+}
+
 export async function analyzeSkin(imageBase64: string): Promise<SkinProfile> {
   const res = await fetch(`${BASE}/skin/analyze`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify({ image_base64: imageBase64 }),
   })
   const data = await handle<{ profile: SkinProfile }>(res)
