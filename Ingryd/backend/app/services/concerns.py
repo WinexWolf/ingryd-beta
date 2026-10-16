@@ -8,7 +8,9 @@ YouCam ui_score is 0-100 where HIGHER = HEALTHIER. "Need" below is the inverse
 APP_CONCERN_KEYS: dict[str, list[str]] = {
     "acne": ["acne", "pore"],
     "aging": ["wrinkle"],
-    "hyperpigmentation": ["age_spot", "dark_circle_v2"],
+    "hyperpigmentation": ["age_spot"],
+    "dark circles": ["dark_circle_v2"],
+    "texture": ["texture"],
     "redness": ["redness"],
     "sensitive": ["redness"],
     "dryness": ["moisture"],

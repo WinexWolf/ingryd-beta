@@ -1,7 +1,9 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { Camera, Upload } from 'lucide-react'
 import { analyzeSkin } from '../services/api'
-import { addSkinAnalysisToHistory, getSkinHistory } from '../services/history'
+import { addSkinAnalysisToHistory, getSkinHistory, getRoutine } from '../services/history'
+import { computeProgress, latestPair } from '../services/progress'
+import { ProgressCard } from '../components/skin/ProgressCard'
 import type { SkinProfile } from '../types'
 import type { SkinHistoryEntry } from '../services/history'
 import { ApplyToProfile } from '../components/skin/ApplyToProfile'
@@ -9,6 +11,7 @@ import { ScanOverlay } from '../components/skin/ScanOverlay'
 import { FocusAreas } from '../components/skin/FocusAreas'
 import { ConcernGrid } from '../components/skin/ConcernGrid'
 import { NextSteps } from '../components/skin/NextSteps'
+import { PicksForYou } from '../components/recommend/PicksForYou'
 
 type PageState = 'idle' | 'camera' | 'preview' | 'loading' | 'result' | 'error'
 
@@ -111,7 +114,12 @@ export function SkinAnalysis() {
     try {
       const result = await analyzeSkin(imageData)
       setProfile(result)
-      await addSkinAnalysisToHistory(result)
+      // Remember what was on the shelf at scan time so later scans can be tied to routine changes.
+      const routine = await getRoutine()
+      await addSkinAnalysisToHistory({
+        ...result,
+        routine_snapshot: routine.map((p) => ({ name: p.name, brand: p.brand, slot: p.slot })),
+      })
       setHistory(await getSkinHistory())
       setPageState('result')
     } catch (err: unknown) {
@@ -249,6 +257,11 @@ export function SkinAnalysis() {
                   <ScanOverlay photo={imageData} masks={masks} areas={areas} selected={selected} onSelect={setSelected} />
                 </div>
               )}
+              {(() => {
+                const pair = latestPair(history)
+                const progress = pair ? computeProgress(pair[0], pair[1]) : null
+                return progress ? <ProgressCard progress={progress} /> : null
+              })()}
               <FocusAreas areas={areas} onShow={show} hasMask={hasMask} />
               <ConcernGrid areas={areas} selected={selected} onSelect={show} hasMask={hasMask} />
             </>
@@ -285,6 +298,8 @@ export function SkinAnalysis() {
             </>
           )}
 
+          {isScan && <PicksForYou scan={profile} title="Products for your focus areas" />}
+
           <ApplyToProfile scan={profile} />
 
           <NextSteps />
@@ -294,13 +309,13 @@ export function SkinAnalysis() {
         )
       })()}
 
-      {history.length > 1 && (
+      {history.filter((h) => h.profile.source === 'youcam').length > 1 && (
         <div className="pt-4" style={{ borderTop: '1px solid var(--rim)' }}>
           <p className="text-[10px] tracking-[0.3em] uppercase mb-4" style={{ color: 'var(--muted)' }}>
-            Your trend · {history.length} scans
+            Your trend · {history.filter((h) => h.profile.source === 'youcam').length} scans
           </p>
           <div className="flex items-end gap-1 h-16">
-            {[...history].reverse().slice(-20).map((h) => (
+            {history.filter((h) => h.profile.source === 'youcam').reverse().slice(-20).map((h) => (
               <div
                 key={h.id}
                 className="flex-1"

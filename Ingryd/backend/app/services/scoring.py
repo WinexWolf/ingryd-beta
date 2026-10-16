@@ -286,6 +286,8 @@ CONCERN_BONUS_INGREDIENTS: dict[str, list[str]] = {
     "acne": ["salicylic acid", "niacinamide", "azelaic acid", "tea tree", "zinc"],
     "aging": ["retinol", "peptide", "ascorbic acid", "adenosine", "bakuchiol", "ferulic acid"],
     "hyperpigmentation": ["arbutin", "kojic acid", "ascorbic acid", "azelaic acid", "niacinamide"],
+    "texture": ["lactic acid", "glycolic acid", "mandelic acid", "salicylic acid", "gluconolactone", "urea", "retinol"],
+    "dark circles": ["caffeine", "phytonadione", "ascorbic acid", "niacinamide", "peptide"],
     "redness": ["centella", "allantoin", "panthenol", "bisabolol", "madecassoside"],
     "sensitive": ["centella", "allantoin", "panthenol", "bisabolol", "madecassoside"],
     "dryness": ["hyaluronic acid", "sodium hyaluronate", "glycerin", "ceramide", "squalane"],

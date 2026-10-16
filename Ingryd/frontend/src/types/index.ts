@@ -46,7 +46,7 @@ export const SKIN_TYPES: { value: SkinType; label: string }[] = [
   { value: 'sensitive', label: 'Sensitive' },
 ]
 
-export const CONCERN_OPTIONS = ['acne', 'aging', 'hyperpigmentation', 'redness', 'dryness']
+export const CONCERN_OPTIONS = ['acne', 'texture', 'dark circles', 'aging', 'hyperpigmentation', 'redness', 'dryness']
 
 export interface ProductResult {
   barcode: string
@@ -59,6 +59,41 @@ export interface ProductResult {
   ingredients_parsed: string[]
   score?: ProductScore
   found: boolean
+}
+
+export interface RecommendedProduct {
+  barcode: string
+  name?: string
+  brand?: string
+  category?: string
+  score: number
+  fit_score: number
+  fit_grade: GradeKey
+  reasons: string[]
+  cautions: string[]
+  delta?: number | null
+  avoids: string[]
+  ingredients_parsed: string[]
+}
+
+export interface RecommendGroup {
+  category: string
+  label: string
+  picks: RecommendedProduct[]
+}
+
+export interface RecommendResponse {
+  personalized: boolean
+  top: RecommendedProduct[]
+  groups: RecommendGroup[]
+  catalog_size: number
+}
+
+export interface AlternativesResponse {
+  category?: string | null
+  current_fit?: number | null
+  picks: RecommendedProduct[]
+  message?: string | null
 }
 
 export interface ProductSearchResponse {
@@ -101,6 +136,8 @@ export interface SkinProfile {
   suggested_skin_type?: string | null
   suggested_concerns?: string[]
   areas?: ConcernArea[]
+  // What was on the user's shelf when this scan was taken (saved with the scan, no ingredients).
+  routine_snapshot?: { name: string; brand?: string; slot: 'am' | 'pm' }[]
   // Signed overlay URLs that expire in ~24h. Display-only: never saved to history.
   masks?: Record<string, string>
 }
@@ -128,6 +165,41 @@ export interface RoutineCheckResponse {
   am_count: number
   pm_count: number
   clean: boolean
+}
+
+export interface RoutineProductFit {
+  name: string
+  brand?: string | null
+  slot: 'am' | 'pm'
+  category: string
+  fit_score?: number | null
+  fit_grade?: GradeKey | null
+  working_for: string[]
+  working_against: string[]
+}
+
+export interface RoutineGap {
+  concern: string
+  label: string
+  score?: number | null
+  message: string
+  suggestion?: RecommendedProduct | null
+}
+
+export interface RoutineCovered {
+  concern: string
+  label: string
+  score?: number | null
+  products: string[]
+}
+
+export interface RoutineFitResponse {
+  headline: string
+  has_scan: boolean
+  products: RoutineProductFit[]
+  covered: RoutineCovered[]
+  gaps: RoutineGap[]
+  missing_basics: string[]
 }
 
 export type GradeKey = 'excellent' | 'good' | 'fair' | 'poor' | 'avoid'

@@ -11,7 +11,7 @@ class IngredientFlag(BaseModel):
 
 class SkinProfile(BaseModel):
     skin_type: Optional[str] = None  # "dry" | "oily" | "combination" | "sensitive" | "normal"
-    concerns: list[str] = []         # e.g. "acne", "aging", "hyperpigmentation", "redness", "dryness"
+    concerns: list[str] = []         # e.g. "acne", "texture", "dark circles", "aging", "hyperpigmentation", "redness", "dryness"
     sensitivities: list[str] = []    # free-text ingredient names the user reacts to
     concern_scores: dict[str, int] = {}  # latest scan, YouCam ui_score per concern (0-100, higher = healthier)
 
@@ -65,3 +65,47 @@ class ProductSearchResponse(BaseModel):
     page: int
     page_size: int
     results: list[ProductResult]
+
+
+class RecommendedProduct(BaseModel):
+    barcode: str
+    name: Optional[str] = None
+    brand: Optional[str] = None
+    category: Optional[str] = None
+    score: int                       # universal score
+    fit_score: int                   # personalized score
+    fit_grade: str
+    reasons: list[str] = []          # why it suits this user
+    cautions: list[str] = []         # honest downsides for this user
+    delta: Optional[int] = None      # alternatives only: fit score minus the product being replaced
+    avoids: list[str] = []           # alternatives only: ingredients the current product has that this skips
+    ingredients_parsed: list[str] = []
+
+
+class RecommendGroup(BaseModel):
+    category: str
+    label: str
+    picks: list[RecommendedProduct]
+
+
+class RecommendResponse(BaseModel):
+    personalized: bool
+    top: list[RecommendedProduct]
+    groups: list[RecommendGroup]
+    catalog_size: int
+
+
+class AlternativesRequest(BaseModel):
+    barcode: Optional[str] = None
+    category: Optional[str] = None
+    ingredients: list[str] = []      # the product being replaced (from the scan result)
+    current_fit: Optional[int] = None
+    profile: Optional[SkinProfile] = None
+    limit: int = 3
+
+
+class AlternativesResponse(BaseModel):
+    category: Optional[str] = None
+    current_fit: Optional[int] = None
+    picks: list[RecommendedProduct]
+    message: Optional[str] = None

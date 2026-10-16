@@ -3,6 +3,7 @@ import { Sun, Moon, X } from 'lucide-react'
 import { fetchProductByBarcode, searchProducts, checkRoutine } from '../services/api'
 import { getRoutine, addRoutineItem, removeRoutineItem } from '../services/history'
 import { BottleIcon } from '../components/routine/BottleIcon'
+import { RoutineFitPanel } from '../components/routine/RoutineFitPanel'
 import type { RoutineProductInput, RoutineCheckResponse, ProductResult } from '../types'
 
 function ShelfCard({ product, index, onRemove }: { product: RoutineProductInput; index: number; onRemove: () => void }) {
@@ -230,6 +231,8 @@ export function Routine() {
           <Shelf products={pmProducts} onRemove={removeProduct} />
         </div>
       </div>
+
+      <RoutineFitPanel products={products} />
 
       {products.length >= 2 && (
         <button onClick={runCheck} disabled={checking} className="btn-primary self-start">

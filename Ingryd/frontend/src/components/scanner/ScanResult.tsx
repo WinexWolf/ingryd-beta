@@ -1,5 +1,6 @@
 import { ScoreGauge } from '../ui/ScoreGauge'
 import { IngredientBadge } from '../ui/IngredientBadge'
+import { BetterForYou } from '../recommend/BetterForYou'
 import type { ProductResult, GradeKey } from '../../types'
 
 interface Props {
@@ -140,6 +141,8 @@ export function ScanResult({ product, onReset }: Props) {
           </div>
         </div>
       )}
+
+      {score && <BetterForYou product={product} />}
 
       {/* Prohibited — banned outright in the EU, most severe, leads */}
       {score && score.prohibited.length > 0 && (

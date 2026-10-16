@@ -2,6 +2,9 @@ from fastapi import APIRouter, HTTPException, Query
 from app.services.catalog import lookup_barcode_with_fallback, catalog_search_products, catalog_browse_products
 from app.models.product import ProductResult, ProductSearchResponse, SkinProfile
 from app.services.concerns import parse_concern_scores
+from app.models.product import AlternativesRequest, AlternativesResponse, RecommendResponse
+from app.services import recommend as rec
+from fastapi.concurrency import run_in_threadpool
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -65,3 +68,23 @@ async def browse(
 ):
     profile = _build_profile(skin_type, concerns, sensitivities, concern_scores)
     return await catalog_browse_products(profile=profile, page=page, page_size=page_size, sort=sort)
+
+
+@router.get("/recommend", response_model=RecommendResponse)
+async def recommend(
+    skin_type: str | None = Query(None),
+    concerns: str | None = Query(None, description="Comma-separated concerns"),
+    sensitivities: str | None = Query(None, description="Comma-separated sensitivities"),
+    concern_scores: str | None = Query(None, description="Latest scan, e.g. acne:77,pore:73"),
+    groups: int = Query(4, ge=1, le=8),
+    per_group: int = Query(3, ge=1, le=6),
+):
+    """Best catalog picks for this user, overall and by product type."""
+    profile = _build_profile(skin_type, concerns, sensitivities, concern_scores)
+    return await run_in_threadpool(rec.recommend, profile, groups, per_group)
+
+
+@router.post("/alternatives", response_model=AlternativesResponse)
+async def alternatives(req: AlternativesRequest):
+    """'Better for you': same-category products that score higher for this user."""
+    return await run_in_threadpool(rec.alternatives, req)

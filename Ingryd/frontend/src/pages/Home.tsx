@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { getScanHistory, getSkinHistory } from '../services/history'
 import { hasProfile } from '../services/profile'
+import { useAuth } from '../services/AuthContext'
+import { Hub } from '../components/home/Hub'
 import type { ScanHistoryEntry, SkinHistoryEntry } from '../services/history'
 import type { GradeKey } from '../types'
 import { GRADE_CONFIG } from '../types'
@@ -50,6 +52,7 @@ const gradeColors: Record<string, { text: string; border: string; bg: string }> 
 }
 
 export function Home() {
+  const { user } = useAuth()
   const [scans, setScans] = useState<ScanHistoryEntry[]>([])
   const [skinHistory, setSkinHistory] = useState<SkinHistoryEntry[]>([])
   const [profileSet, setProfileSet] = useState(false)
@@ -68,7 +71,10 @@ export function Home() {
   return (
     <div className="flex flex-col gap-24">
 
+      {user && <Hub />}
+
       {/* ── Hero ─────────────────────────────────────────────── */}
+      {!user && (
       <section className="pt-8 pb-4">
         <p className="text-[10px] tracking-[0.4em] uppercase mb-6 font-sans" style={{ color: 'var(--muted)' }}>
           Skincare, decoded
@@ -101,9 +107,9 @@ export function Home() {
         {/* Stats — alternate primary / secondary */}
         <div className="mt-16 pt-8 grid grid-cols-3 gap-0 max-w-lg" style={{ borderTop: '1px solid var(--rim)' }}>
           {[
-            { val: '50K+', label: 'Ingredients tracked', accent: 'primary' },
-            { val: '3M+',  label: 'Products in database', accent: 'secondary' },
-            { val: '100',  label: 'Point scoring scale', accent: 'primary' },
+            { val: '9',     label: 'Skin concerns scanned', accent: 'primary' },
+            { val: '2,800+', label: 'Products with full ingredients', accent: 'secondary' },
+            { val: '100',   label: 'Point scoring scale', accent: 'primary' },
           ].map((s, i) => (
             <div
               key={i}
@@ -116,6 +122,7 @@ export function Home() {
           ))}
         </div>
       </section>
+      )}
 
       {/* ── Profile prompt ────────────────────────────────────── */}
       {!profileSet && (
@@ -137,14 +144,14 @@ export function Home() {
       {hasActivity && (
         <section>
           <div className="flex items-end justify-between mb-8 pb-4" style={{ borderBottom: '1px solid var(--rim)' }}>
-            <h2 className="font-display text-4xl" style={{ color: 'var(--fg)' }}>Your Skin Tracker</h2>
+            <h2 className="font-display text-4xl" style={{ color: 'var(--fg)' }}>{user ? 'Recent Activity' : 'Your Skin Tracker'}</h2>
             <span className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>
               {scans.length} scans · {skinHistory.length} skin checks
             </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-0" style={{ border: '1px solid var(--rim)' }}>
-            {/* Latest skin score */}
-            <div className="p-6 flex flex-col gap-4" style={{ borderBottom: '1px solid var(--rim)' }}>
+          <div className={`grid grid-cols-1 ${user ? '' : 'sm:grid-cols-2'} gap-0`} style={{ border: '1px solid var(--rim)' }}>
+            {/* Latest skin score (the signed-in hub already shows this) */}
+            {!user && <div className="p-6 flex flex-col gap-4" style={{ borderBottom: '1px solid var(--rim)' }}>
               <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Latest skin score</p>
               {latestSkin ? (
                 <div className="flex items-end gap-4">
@@ -158,7 +165,7 @@ export function Home() {
                   Run your first skin analysis →
                 </Link>
               )}
-            </div>
+            </div>}
             {/* Recent scans */}
             <div className="p-6 flex flex-col gap-4 sm:border-l" style={{ borderBottom: '1px solid var(--rim)', borderColor: 'var(--rim)' }}>
               <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Recently scanned</p>

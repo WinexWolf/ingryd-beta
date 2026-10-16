@@ -83,5 +83,13 @@ def test_suggest_skin_type():
 def test_suggest_concerns_uses_flag_threshold():
     ui = {"acne": 99, "pore": 73, "wrinkle": 82, "age_spot": 92, "dark_circle_v2": 71,
           "redness": 88, "moisture": 82}
-    # pore 73 -> acne; dark circle 71 -> hyperpigmentation; the rest healthy
-    assert suggest_concerns(ui) == ["acne", "hyperpigmentation"]
+    # pore 73 -> acne; dark circle 71 -> dark circles; the rest healthy
+    assert suggest_concerns(ui) == ["acne", "dark circles"]
+
+
+def test_texture_and_dark_circle_concerns_reward_matching_actives():
+    ings = score_ingredients(["Water", "Lactic Acid", "Caffeine"], SkinProfile(
+        concerns=["texture", "dark circles"], concern_scores={"texture": 80, "dark_circle_v2": 71})).personal_notes
+    by = {x.ingredient: x for x in ings}
+    assert by["Lactic Acid"].adjustment > 0 and "texture" in by["Lactic Acid"].reason
+    assert by["Caffeine"].adjustment > 0 and "dark circles" in by["Caffeine"].reason
