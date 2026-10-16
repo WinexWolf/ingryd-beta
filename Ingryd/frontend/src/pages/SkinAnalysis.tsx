@@ -16,8 +16,12 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 
-function MetricBar({ label, score, tag }: { label: string; score: number; tag: string }) {
-  const color = score < 40 ? '#b91c1c' : score < 65 ? '#a16207' : 'var(--moss)'
+// `higherIsWorse`: oiliness, redness and texture scores measure how much of the issue
+// is present, so a LOW score is the healthy one. The bar length always shows the raw
+// score; only the color is flipped so a calm face is green, not red.
+function MetricBar({ label, score, tag, higherIsWorse = false }: { label: string; score: number; tag: string; higherIsWorse?: boolean }) {
+  const health = higherIsWorse ? 100 - score : score
+  const color = health < 40 ? '#b91c1c' : health < 65 ? '#a16207' : 'var(--moss)'
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -126,7 +130,7 @@ export function SkinAnalysis() {
         <h1 className="font-display text-5xl" style={{ color: 'var(--fg)' }}>Skin Analysis</h1>
         <p className="text-sm mt-4 leading-relaxed" style={{ color: 'var(--muted)' }}>
           A quick image-based read on hydration, oiliness, redness, and texture — plus ingredients to look for.
-          This is a lightweight v1 heuristic, not a clinical or diagnostic tool.
+          AI-assisted and not a clinical or diagnostic tool.
         </p>
       </div>
 
@@ -212,9 +216,9 @@ export function SkinAnalysis() {
 
           <div className="p-6 flex flex-col gap-6" style={{ border: '1px solid var(--rim)' }}>
             <MetricBar label="Hydration" score={profile.hydration.score} tag={profile.hydration.label} />
-            <MetricBar label="Oiliness" score={profile.oiliness.score} tag={profile.oiliness.label} />
-            <MetricBar label="Redness" score={profile.redness.score} tag={profile.redness.label} />
-            <MetricBar label="Texture" score={profile.texture.score} tag={profile.texture.label} />
+            <MetricBar label="Oiliness" score={profile.oiliness.score} tag={profile.oiliness.label} higherIsWorse />
+            <MetricBar label="Redness" score={profile.redness.score} tag={profile.redness.label} higherIsWorse />
+            <MetricBar label="Texture" score={profile.texture.score} tag={profile.texture.label} higherIsWorse />
           </div>
 
           {profile.notes.length > 0 && (
