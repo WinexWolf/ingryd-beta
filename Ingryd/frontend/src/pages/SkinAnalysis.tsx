@@ -12,6 +12,7 @@ import { FocusAreas } from '../components/skin/FocusAreas'
 import { ConcernGrid } from '../components/skin/ConcernGrid'
 import { NextSteps } from '../components/skin/NextSteps'
 import { PicksForYou } from '../components/recommend/PicksForYou'
+import { checkPhoto, imageFromSrc, loadDetector, SKIPPED, type PhotoCheck } from '../services/photoCheck'
 
 type PageState = 'idle' | 'camera' | 'preview' | 'loading' | 'result' | 'error'
 
@@ -54,6 +55,33 @@ function MetricBar({ label, score, tag, higherIsWorse = false }: { label: string
   )
 }
 
+function PhotoCheckPanel({ check, override, onOverride }: { check: PhotoCheck | 'running' | null; override: boolean; onOverride: () => void }) {
+  if (check === 'running' || check === null) {
+    return <p role="status" className="text-xs" style={{ color: 'var(--muted)' }}>Checking your photo…</p>
+  }
+  if (!check.checked) return null // detector unavailable: skip silently
+  if (check.issues.length === 0) {
+    return <p role="status" data-stats={JSON.stringify(check.stats)} className="text-xs" style={{ color: 'var(--ok)' }}>✓ One face, well framed. Good to go.</p>
+  }
+  return (
+    <div role="alert" data-stats={JSON.stringify(check.stats)} className="p-4 flex flex-col gap-2 text-sm" style={{ border: `1px solid ${check.blocked ? 'var(--danger)' : 'var(--warn)'}` }}>
+      {check.issues.map((i) => (
+        <p key={i.code} style={{ color: i.severity === 'warn' ? 'var(--warn)' : 'var(--danger)' }}>
+          {i.severity === 'warn' ? '⚠ ' : '✕ '}{i.message}
+        </p>
+      ))}
+      {check.blocked && check.overridable && !override && (
+        <button type="button" onClick={onOverride} className="text-xs underline self-start" style={{ color: 'var(--muted)' }}>
+          My face is clearly visible — analyze anyway
+        </button>
+      )}
+      {check.blocked && !check.overridable && (
+        <p className="text-xs" style={{ color: 'var(--muted)' }}>Tap Retake to try again with a different photo.</p>
+      )}
+    </div>
+  )
+}
+
 export function SkinAnalysis() {
   const [pageState, setPageState] = useState<PageState>('idle')
   const [imageData, setImageData] = useState<string | null>(null)
@@ -63,6 +91,9 @@ export function SkinAnalysis() {
   const [history, setHistory] = useState<SkinHistoryEntry[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [consent, setConsent] = useState(readConsent)
+  const [photoCheck, setPhotoCheck] = useState<PhotoCheck | 'running' | null>(null)
+  const [override, setOverride] = useState(false)
+  const [liveHint, setLiveHint] = useState<string | null>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -81,6 +112,39 @@ export function SkinAnalysis() {
   }, [])
 
   useEffect(() => stopCamera, [stopCamera])
+
+  // Warm up the face detector as soon as the page opens so the check feels instant.
+  useEffect(() => { void loadDetector() }, [])
+
+  // Check every new photo before the person can spend a scan on it.
+  useEffect(() => {
+    if (!imageData || pageState !== 'preview') return
+    let cancelled = false
+    setPhotoCheck('running'); setOverride(false)
+    imageFromSrc(imageData)
+      .then((img) => checkPhoto(img))
+      .catch(() => SKIPPED)
+      .then((r) => { if (!cancelled) setPhotoCheck(r) })
+    return () => { cancelled = true }
+  }, [imageData, pageState])
+
+  // Live guidance while the camera is open (never blocks Capture; the check after capture is the gate).
+  useEffect(() => {
+    if (pageState !== 'camera') { setLiveHint(null); return }
+    let stop = false
+    const tick = async () => {
+      const v = videoRef.current
+      if (!stop && v && v.videoWidth > 0 && !v.paused) {
+        try {
+          const r = await checkPhoto(v)
+          if (!stop) setLiveHint(!r.checked ? null : r.issues[0]?.message ?? '✓ Looking good — hold still and capture')
+        } catch { /* hint only */ }
+      }
+      if (!stop) setTimeout(tick, 900)
+    }
+    const t = setTimeout(tick, 1200)
+    return () => { stop = true; clearTimeout(t) }
+  }, [pageState])
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -216,10 +280,18 @@ export function SkinAnalysis() {
 
       {pageState === 'camera' && (
         <div className="flex flex-col gap-6">
-          <div className="flex justify-center" style={{ border: '1px solid var(--rim)', backgroundColor: '#000' }}>
+          <div className="relative flex justify-center" style={{ border: '1px solid var(--rim)', backgroundColor: '#000' }}>
+            <div aria-hidden className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="h-[78%] aspect-[3/4] rounded-[50%]" style={{ border: '2px dashed rgba(255,255,255,0.65)' }} />
+            </div>
             <video ref={videoRef} playsInline muted className="max-h-96 w-full object-contain" style={{ transform: 'scaleX(-1)' }} />
           </div>
           <canvas ref={canvasRef} className="hidden" />
+          {!cameraError && (
+            <p role="status" className="text-xs text-center min-h-[1.25rem]" style={{ color: liveHint?.startsWith('✓') ? 'var(--ok)' : 'var(--muted)' }}>
+              {liveHint ?? 'Center your face in the oval, in soft light.'}
+            </p>
+          )}
           {cameraError ? (
             <div className="p-6 text-center" style={{ border: '1px solid rgba(185,28,28,0.4)' }}>
               <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>{cameraError}</p>
@@ -239,6 +311,7 @@ export function SkinAnalysis() {
           <div className="p-2 flex justify-center" style={{ border: '1px solid var(--rim)', backgroundColor: 'var(--surface)' }}>
             <img src={imageData} alt="Preview" className="max-h-96 object-contain" />
           </div>
+          <PhotoCheckPanel check={photoCheck} override={override} onOverride={() => setOverride(true)} />
           <label className="flex items-start gap-3 text-xs leading-relaxed cursor-pointer" style={{ color: 'var(--muted)' }}>
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5" />
             <span>
@@ -248,7 +321,9 @@ export function SkinAnalysis() {
             </span>
           </label>
           <div className="flex gap-3">
-            <button onClick={runAnalysis} disabled={!consent} className="btn-primary flex-1">Analyze Skin</button>
+            <button onClick={runAnalysis} disabled={!consent || photoCheck === 'running' || (typeof photoCheck === 'object' && photoCheck !== null && photoCheck.blocked && !(photoCheck.overridable && override))} className="btn-primary flex-1">
+              {typeof photoCheck === 'object' && photoCheck?.issues.some((i) => i.severity === 'warn') ? 'Analyze anyway' : 'Analyze Skin'}
+            </button>
             <button onClick={reset} className="btn-outline">Retake</button>
           </div>
         </div>
