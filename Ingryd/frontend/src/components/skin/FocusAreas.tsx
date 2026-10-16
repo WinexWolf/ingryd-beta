@@ -3,8 +3,9 @@ import { STATUS_COLOR, STATUS_WORD } from './statusColor'
 
 /** The three lowest-scoring areas. Always shown, even when everything is healthy,
  *  so every scan ends with something concrete to do. */
-export function FocusAreas({ areas, onShow, hasMask }: {
+export function FocusAreas({ areas, onShow, hasMask, varies = [] }: {
   areas: ConcernArea[]
+  varies?: string[]
   onShow: (key: string) => void
   hasMask: (key: string) => boolean
 }) {
@@ -33,6 +34,11 @@ export function FocusAreas({ areas, onShow, hasMask }: {
             </p>
           </div>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{a.tip}</p>
+          {varies.includes(a.key) && (
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--warn)' }}>
+              Your photos disagree on this one, so it may be stronger on one side of your face.
+            </p>
+          )}
           {a.ingredients.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {a.ingredients.map((ing) => <span key={ing} className="badge-beneficial">{ing}</span>)}

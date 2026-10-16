@@ -7,7 +7,7 @@ from PIL import Image, ImageOps
 
 from app.models.skin import ConcernArea, SkinMetric, SkinProfile
 from app.services.concerns import APP_CONCERN_KEYS, FLAG_BELOW, flagged
-from app.services.youcam import YouCamAnalysis
+from app.services.youcam import ConcernScore, YouCamAnalysis
 
 MIN_SIDE = 480          # YouCam requires short side >= 480px
 MAX_SIDE = 1600         # plenty for analysis; keeps uploads small
@@ -124,6 +124,40 @@ def _label_redness(s: int) -> str:
 
 def _label_texture(s: int) -> str:
     return "Smooth" if s < 35 else "Some texture" if s < 65 else "Breakout-prone"
+
+
+FRONT_WEIGHT, SIDE_WEIGHT = 2.0, 1.0   # front = 50% with two sides, 67% with one
+VARIES_SPREAD = 15                    # points between views before we call a concern "uneven"
+
+
+def merge_views(front: YouCamAnalysis, sides: dict[str, YouCamAnalysis]):
+    """Combine the front analysis with side-photo analyses.
+
+    Concern scores are a weighted mean (front counts double: it sees both cheeks and the T-zone
+    squarely, and it is what the API is designed for). Skin type, skin age and the overlay masks
+    come from the front photo only, since masks are drawn on the front photo.
+    Returns (merged analysis, per-view concern scores, concerns where views disagree by >= VARIES_SPREAD).
+    """
+    views = {"front": front, **sides}
+    weights = {"front": FRONT_WEIGHT, **{k: SIDE_WEIGHT for k in sides}}
+    merged: dict[str, ConcernScore] = {}
+    varies: list[str] = []
+    for key, f in front.concerns.items():
+        pts = [(weights[v], a.concerns[key].ui_score) for v, a in views.items() if key in a.concerns]
+        total = sum(w for w, _ in pts)
+        score = round(sum(w * s for w, s in pts) / total)
+        merged[key] = ConcernScore(ui_score=score, raw_score=f.raw_score, mask_url=f.mask_url)
+        vals = [s for _, s in pts]
+        if len(vals) > 1 and max(vals) - min(vals) >= VARIES_SPREAD:
+            varies.append(key)
+    overall = [(weights[v], a.overall_score) for v, a in views.items() if a.overall_score is not None]
+    overall_score = (sum(w * s for w, s in overall) / sum(w for w, _ in overall)) if len(overall) == len(views) else front.overall_score
+    out = YouCamAnalysis(
+        concerns=merged, skin_type=front.skin_type, skin_type_zones=front.skin_type_zones,
+        overall_score=overall_score, skin_age=front.skin_age,
+    )
+    view_scores = {v: {k: c.ui_score for k, c in a.concerns.items()} for v, a in views.items()}
+    return out, view_scores, varies
 
 
 def map_to_profile(a: YouCamAnalysis) -> SkinProfile:

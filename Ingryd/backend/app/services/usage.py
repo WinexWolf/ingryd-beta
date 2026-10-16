@@ -2,10 +2,13 @@
 person or one bug. Counts live in Supabase (table youcam_usage) so they survive restarts;
 if Supabase is unreachable we fall back to a per-process counter.
 
+A "scan" here is one photo analysis (~14 YouCam units). A 3-photo scan (front + left + right)
+uses 3; a front-only scan uses 1.
+
 Caps (env, all optional):
-  YOUCAM_USER_DAILY_CAP  scans per user per day              (default 3)
-  YOUCAM_DAILY_CAP       scans per day across everyone       (default 30)
-  YOUCAM_TOTAL_CAP       scans ever, across everyone         (default 60 ~ 840 units)
+  YOUCAM_USER_DAILY_CAP  photo analyses per user per day     (default 6  = two 3-photo scans)
+  YOUCAM_DAILY_CAP       photo analyses per day, everyone    (default 60)
+  YOUCAM_TOTAL_CAP       photo analyses ever, everyone       (default 70 ~ 980 units)
 """
 import os
 from datetime import datetime, timezone
@@ -29,9 +32,9 @@ def _int(name: str, default: int) -> int:
         return default
 
 
-def user_cap() -> int: return _int("YOUCAM_USER_DAILY_CAP", 3)
-def day_cap() -> int: return _int("YOUCAM_DAILY_CAP", 30)
-def total_cap() -> int: return _int("YOUCAM_TOTAL_CAP", 60)
+def user_cap() -> int: return _int("YOUCAM_USER_DAILY_CAP", 6)
+def day_cap() -> int: return _int("YOUCAM_DAILY_CAP", 60)
+def total_cap() -> int: return _int("YOUCAM_TOTAL_CAP", 70)
 
 
 def _today() -> str:
@@ -72,21 +75,25 @@ def _write(uid: str, day: str, delta: int) -> None:
         print(f"[usage] could not persist usage: {e}")
 
 
-def reserve(uid: str) -> None:
-    """Take one scan from the budget or raise LimitReached."""
+def reserve(uid: str, n: int = 1) -> None:
+    """Take `n` photo analyses from the budget (all or nothing) or raise LimitReached."""
     day = _today()
     mine, today, total = _snapshot(uid, day)
-    if mine >= user_cap():
-        raise LimitReached("user", f"You've used today's {user_cap()} skin scans. Try again tomorrow, or open the sample scan.")
-    if today >= day_cap() or total >= total_cap():
-        raise LimitReached("day" if today >= day_cap() else "total",
+    left = user_cap() - mine
+    if left < n:
+        if left >= 1:
+            raise LimitReached("user", f"You have {left} photo analysis{'es' if left != 1 else ''} left today and this scan needs {n}. "
+                                       "Remove a side photo to scan with fewer photos, or try again tomorrow.")
+        raise LimitReached("user", f"You've used today's {user_cap()} photo analyses. Try again tomorrow, or open the sample scan.")
+    if today + n > day_cap() or total + n > total_cap():
+        raise LimitReached("day" if today + n > day_cap() else "total",
                            "Live skin scanning has reached its limit for now. The sample scan shows the full experience.")
-    _write(uid, day, +1)
+    _write(uid, day, +n)
 
 
-def release(uid: str) -> None:
-    """Give a scan back when YouCam failed (it only charges for successful analyses)."""
-    _write(uid, _today(), -1)
+def release(uid: str, n: int = 1) -> None:
+    """Give analyses back when YouCam failed (it only charges for successful analyses)."""
+    _write(uid, _today(), -n)
 
 
 def reset_for_tests() -> None:

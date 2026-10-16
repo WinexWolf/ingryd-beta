@@ -19,6 +19,7 @@ Ingryd already existed before the hackathon as an ingredient scanner. During the
 | Before Sep 29 (already built) | New for the hackathon |
 |---|---|
 | Barcode scanner, ingredient-label OCR, product search | **YouCam Skin Analysis API** replaces the old image heuristic: 9 concerns scored, skin type per zone, skin age, and per-concern masks |
+| | **Guided 3-angle capture** (front, left, right) with live head-pose guidance, auto-capture, and an on-device photo check that rejects group shots and non-faces before any API units are spent |
 | Ingredient scoring engine (0–100, grades, allergens, banned substances) | **Scan-aware Fit Score:** each ingredient adjustment is weighted by how weak that concern scored on your scan |
 | Profile (skin type, concerns, sensitivities) | **"Apply to my profile"** turns a scan into your saved profile, including new *uneven texture* and *dark circles* concerns |
 | Routine shelf with conflict checks | **Routine vs. your scan:** what is working for you, what works against you, which weak spots nothing targets, and what to add |
@@ -54,6 +55,16 @@ The backend calls the YouCam Skin Analysis API (file upload → analysis task �
 - Mask images are drawn over your own photo. They are signed links that expire in about 24 hours, so they are shown immediately and **never stored**.
 - The API key lives only on the server. It is never sent to the browser or committed.
 
+### Three photos, one result
+
+The YouCam API analyzes one photo at a time, so a front + left + right scan is three analyses that we combine:
+
+- The **front photo is required** and counts double. It drives skin type, skin age and the overlay masks (masks are drawn on the front photo).
+- Each **side photo is optional**. Concern scores are a weighted average (front 50%, each side 25%; with one side, 67% / 33%).
+- When the photos disagree by 15+ points on a concern, the app says so ("may be stronger on one side of your face").
+- If a side photo can't be analyzed, the result uses the others, says so, and does not charge it against the scan limit.
+- Before upload, a **face check runs on the phone** (nothing is uploaded for it): exactly one face, big enough, in frame, lit and sharp, with the head turned the right way for each angle. Group photos and non-faces are stopped before they cost API units. The check is advisory where a face detector can be wrong (a missed face can be overridden), and strict for group photos.
+
 ### How a scan changes the Fit Score
 
 Without a scan, Fit Score behaves as before. With one, each adjustment is scaled by severity (roughly 0.5x for a score near 95, about 1x near 73, up to 1.6x near 40):
@@ -81,7 +92,7 @@ Your two latest scans are compared concern by concern. **Changes under 5 points 
 - **Consent:** a scan needs an explicit checkbox saying the photo goes to YouCam for analysis. The photo is re-encoded server-side (this strips location data) and is not kept by Ingryd.
 - **Not medical advice:** Ingryd is not a medical device and does not diagnose.
 - **Sign-in required for live scans**, verified on the server against Supabase Auth.
-- **Scan limits** protect the free API units: 3 live scans per user per day, 30 per day overall, 60 total (all configurable). When a limit is reached, the user is told and offered the sample scan instead of being silently downgraded.
+- **Scan limits** protect the free API units. Each photo analyzed counts as one: 6 per user per day (two full 3-photo scans), 60 per day overall, 70 total (all configurable). When a limit is reached, the user is told and offered the sample scan instead of being silently downgraded.
 - **Sample scan:** a labelled example result that costs no API units and needs no photo. It is never saved to your history.
 - **Demo data:** one tap on Home loads two earlier example scans and a starter routine, all labelled "Demo", and one tap removes exactly those rows. Demo scans are only ever compared with demo scans.
 - **Admin routes** (catalog review) require a valid login belonging to an admin.
@@ -112,6 +123,7 @@ Baseline scoring: start at 70, then −15 per high-concern ingredient (cap −45
 | Skin analysis | YouCam Skin Analysis API |
 | Ingredient data | Own Supabase catalog, Open Beauty Facts, BarcodeNest, INCI enrichment |
 | OCR | Tesseract |
+| Photo check | face-api.js tiny detector + landmarks, run in the browser |
 
 ---
 
@@ -139,7 +151,7 @@ Environment variables (names only):
 |---|---|---|
 | Backend | `YOUCAM_API_KEY` | YouCam API key (server only) |
 | Backend | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Catalog, auth checks, usage counts |
-| Backend | `YOUCAM_USER_DAILY_CAP`, `YOUCAM_DAILY_CAP`, `YOUCAM_TOTAL_CAP` | Optional scan limits (defaults 3 / 30 / 60) |
+| Backend | `YOUCAM_USER_DAILY_CAP`, `YOUCAM_DAILY_CAP`, `YOUCAM_TOTAL_CAP` | Optional limits, counted in photo analyses (defaults 6 / 60 / 70) |
 | Backend | `CORS_ORIGINS` | Optional comma-separated allowed origins |
 | Frontend | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Public Supabase client settings |
 | Frontend | `VITE_API_BASE_URL` | Backend URL in production |
@@ -158,6 +170,7 @@ cd frontend && npx tsc --noEmit -p .
 
 ## Known limits
 
-- Scores come from ingredient lists and one photo. Lighting, makeup, and filters affect scan results; the app shows tips before each scan.
+- Scores come from ingredient lists and up to three photos. Lighting, makeup, and filters affect scan results; the app shows tips and checks the photos before each scan. The on-device face check is a best-effort filter, not a guarantee, and has not been validated across all skin tones.
+- The skin-analysis API takes one photo per analysis, so a 3-photo scan costs three analyses of the free allowance. Side-photo accuracy depends on the API handling angled faces, which the app handles gracefully when it doesn't.
 - Roughly a third of catalog products had no category; their type is inferred from the name, so a few may be misfiled.
 - Live scanning is capped to stay inside the free API units, so the sample scan is always available.

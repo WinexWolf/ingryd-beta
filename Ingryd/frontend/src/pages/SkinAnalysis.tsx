@@ -12,9 +12,11 @@ import { FocusAreas } from '../components/skin/FocusAreas'
 import { ConcernGrid } from '../components/skin/ConcernGrid'
 import { NextSteps } from '../components/skin/NextSteps'
 import { PicksForYou } from '../components/recommend/PicksForYou'
-import { checkPhoto, imageFromSrc, loadDetector, SKIPPED, type PhotoCheck } from '../services/photoCheck'
+import { checkPhoto, imageFromSrc, loadDetector, SKIPPED, type View } from '../services/photoCheck'
+import { GuidedCapture } from '../components/skin/GuidedCapture'
+import { PhotoSlots, VIEWS, isBlocking, type Check } from '../components/skin/PhotoSlots'
 
-type PageState = 'idle' | 'camera' | 'preview' | 'loading' | 'result' | 'error'
+type PageState = 'idle' | 'camera' | 'review' | 'loading' | 'result' | 'error'
 
 const CONSENT_KEY = 'ingryd-scan-consent'
 const readConsent = () => { try { return localStorage.getItem(CONSENT_KEY) === '1' } catch { return false } }
@@ -55,50 +57,20 @@ function MetricBar({ label, score, tag, higherIsWorse = false }: { label: string
   )
 }
 
-function PhotoCheckPanel({ check, override, onOverride }: { check: PhotoCheck | 'running' | null; override: boolean; onOverride: () => void }) {
-  if (check === 'running' || check === null) {
-    return <p role="status" className="text-xs" style={{ color: 'var(--muted)' }}>Checking your photo…</p>
-  }
-  if (!check.checked) return null // detector unavailable: skip silently
-  if (check.issues.length === 0) {
-    return <p role="status" data-stats={JSON.stringify(check.stats)} className="text-xs" style={{ color: 'var(--ok)' }}>✓ One face, well framed. Good to go.</p>
-  }
-  return (
-    <div role="alert" data-stats={JSON.stringify(check.stats)} className="p-4 flex flex-col gap-2 text-sm" style={{ border: `1px solid ${check.blocked ? 'var(--danger)' : 'var(--warn)'}` }}>
-      {check.issues.map((i) => (
-        <p key={i.code} style={{ color: i.severity === 'warn' ? 'var(--warn)' : 'var(--danger)' }}>
-          {i.severity === 'warn' ? '⚠ ' : '✕ '}{i.message}
-        </p>
-      ))}
-      {check.blocked && check.overridable && !override && (
-        <button type="button" onClick={onOverride} className="text-xs underline self-start" style={{ color: 'var(--muted)' }}>
-          My face is clearly visible — analyze anyway
-        </button>
-      )}
-      {check.blocked && !check.overridable && (
-        <p className="text-xs" style={{ color: 'var(--muted)' }}>Tap Retake to try again with a different photo.</p>
-      )}
-    </div>
-  )
-}
-
 export function SkinAnalysis() {
   const [pageState, setPageState] = useState<PageState>('idle')
-  const [imageData, setImageData] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<Partial<Record<View, string>>>({})
+  const [checks, setChecks] = useState<Partial<Record<View, Check>>>({})
+  const [overrides, setOverrides] = useState<Partial<Record<View, boolean>>>({})
+  const [camera, setCamera] = useState<{ start: View; single: boolean } | null>(null)
   const [profile, setProfile] = useState<SkinProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [cameraError, setCameraError] = useState<string | null>(null)
   const [history, setHistory] = useState<SkinHistoryEntry[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [consent, setConsent] = useState(readConsent)
-  const [photoCheck, setPhotoCheck] = useState<PhotoCheck | 'running' | null>(null)
-  const [override, setOverride] = useState(false)
-  const [liveHint, setLiveHint] = useState<string | null>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
+  const fileInputs = useRef<Partial<Record<View, HTMLInputElement | null>>>({})
+  const imageData = photos.front ?? null   // the overlay is drawn on the front photo
 
   useEffect(() => {
     let cancelled = false
@@ -106,94 +78,43 @@ export function SkinAnalysis() {
     return () => { cancelled = true }
   }, [])
 
-  const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop())
-    streamRef.current = null
-  }, [])
-
-  useEffect(() => stopCamera, [stopCamera])
-
-  // Warm up the face detector as soon as the page opens so the check feels instant.
+  // Warm up the face detector as soon as the page opens so checks feel instant.
   useEffect(() => { void loadDetector() }, [])
 
-  // Check every new photo before the person can spend a scan on it.
-  useEffect(() => {
-    if (!imageData || pageState !== 'preview') return
-    let cancelled = false
-    setPhotoCheck('running'); setOverride(false)
-    imageFromSrc(imageData)
-      .then((img) => checkPhoto(img))
+  /** Stores a photo and checks it (face count, size, light, sharpness, head turn) before it can be analyzed. */
+  const setPhoto = useCallback((view: View, data: string, fromCamera: boolean) => {
+    setPhotos((p) => ({ ...p, [view]: data }))
+    setOverrides((o) => ({ ...o, [view]: false }))
+    setChecks((c) => ({ ...c, [view]: 'running' }))
+    imageFromSrc(data)
+      .then((img) => checkPhoto(img, { view, mirrored: fromCamera }))
       .catch(() => SKIPPED)
-      .then((r) => { if (!cancelled) setPhotoCheck(r) })
-    return () => { cancelled = true }
-  }, [imageData, pageState])
+      .then((r) => setChecks((c) => (photosRef.current[view] === data ? { ...c, [view]: r } : c)))
+  }, [])
+  const photosRef = useRef(photos)
+  photosRef.current = photos
 
-  // Live guidance while the camera is open (never blocks Capture; the check after capture is the gate).
-  useEffect(() => {
-    if (pageState !== 'camera') { setLiveHint(null); return }
-    let stop = false
-    const tick = async () => {
-      const v = videoRef.current
-      if (!stop && v && v.videoWidth > 0 && !v.paused) {
-        try {
-          const r = await checkPhoto(v)
-          if (!stop) setLiveHint(!r.checked ? null : r.issues[0]?.message ?? '✓ Looking good — hold still and capture')
-        } catch { /* hint only */ }
-      }
-      if (!stop) setTimeout(tick, 900)
-    }
-    const t = setTimeout(tick, 1200)
-    return () => { stop = true; clearTimeout(t) }
-  }, [pageState])
+  const removePhoto = (view: View) => {
+    setPhotos((p) => { const n = { ...p }; delete n[view]; return n })
+    setChecks((c) => ({ ...c, [view]: undefined }))
+  }
 
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = (view: View) => async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
-    const base64 = await fileToBase64(file)
-    setImageData(base64)
-    setPageState('preview')
+    setPhoto(view, await fileToBase64(file), false)
+    setPageState('review')
   }
 
-  const openCamera = async () => {
-    setCameraError(null)
-    setPageState('camera')
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-      }
-    } catch {
-      setCameraError('Could not access your camera. Check browser permissions, or upload a photo instead.')
-    }
-  }
-
-  const capturePhoto = () => {
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    if (!video || !canvas) return
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    // The live preview is mirrored (like every phone's selfie camera), so save it mirrored too:
-    // the photo then matches what the person saw when they pressed Capture.
-    ctx.translate(canvas.width, 0)
-    ctx.scale(-1, 1)
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-    setImageData(canvas.toDataURL('image/jpeg', 0.92))
-    stopCamera()
-    setPageState('preview')
-  }
+  const startCamera = (start: View, single = false) => { setCamera({ start, single }); setPageState('camera') }
 
   const runSample = async () => {
-    stopCamera()
     setPageState('loading')
     setError(null)
     try {
       setProfile(await analyzeSample())
-      setImageData(null)
+      setPhotos({}); setChecks({})
       setSelected(null)
       setPageState('result') // deliberately not saved to history: it isn't the user's skin
     } catch (err: unknown) {
@@ -202,13 +123,18 @@ export function SkinAnalysis() {
     }
   }
 
+  const sideCount = (['left', 'right'] as View[]).filter((v) => photos[v]).length
+  const blocked = VIEWS.some((v) => isBlocking(photos[v], checks[v], !!overrides[v]))
+  const canAnalyze = consent && !!photos.front && !blocked
+  const hasWarnings = VIEWS.some((v) => { const c = checks[v]; return !!photos[v] && typeof c === 'object' && c !== null && c.issues.length > 0 })
+
   const runAnalysis = async () => {
-    if (!imageData || !consent) return
+    if (!photos.front || !consent) return
     rememberConsent()
     setPageState('loading')
     setError(null)
     try {
-      const result = await analyzeSkin(imageData)
+      const result = await analyzeSkin({ front: photos.front, left: photos.left, right: photos.right })
       setProfile(result)
       // Remember what was on the shelf at scan time so later scans can be tied to routine changes.
       const routine = await getRoutine()
@@ -225,14 +151,12 @@ export function SkinAnalysis() {
   }
 
   const reset = () => {
-    stopCamera()
-    setImageData(null)
+    setCamera(null)
+    setPhotos({}); setChecks({}); setOverrides({})
     setProfile(null)
     setSelected(null)
     setError(null)
-    setCameraError(null)
     setPageState('idle')
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   return (
@@ -246,26 +170,28 @@ export function SkinAnalysis() {
         </p>
       </div>
 
+      {/* One hidden file input per angle */}
+      {VIEWS.map((v) => (
+        <input key={v} ref={(el) => { fileInputs.current[v] = el }} type="file" accept="image/*" onChange={handleFile(v)} className="hidden" data-testid={`file-${v}`} />
+      ))}
+
       {pageState === 'idle' && (
-        <div className="p-10 flex flex-col items-center gap-6 text-center" style={{ border: '1px solid var(--rim)' }}>
-          <p className="text-sm max-w-sm" style={{ color: 'var(--muted)' }}>
-            Take a clear, well-lit, makeup-free photo of your face — or upload one from your camera roll.
+        <div className="p-6 sm:p-10 flex flex-col items-center gap-6 text-center" style={{ border: '1px solid var(--rim)' }}>
+          <p className="text-sm max-w-sm leading-relaxed" style={{ color: 'var(--muted)' }}>
+            For the most accurate read, take <strong style={{ color: 'var(--fg)' }}>three photos</strong>: front, left side and right side.
+            We'll guide you, and the camera takes each photo for you once you're in position.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <button onClick={openCamera} className="btn-primary flex items-center gap-2">
-              <Camera size={16} /> Use Camera
+            <button onClick={() => startCamera('front')} className="btn-primary flex items-center gap-2">
+              <Camera size={16} /> Guided camera scan
             </button>
-            <button onClick={() => fileInputRef.current?.click()} className="btn-outline flex items-center gap-2">
-              <Upload size={16} /> Upload Photo
+            <button onClick={() => fileInputs.current.front?.click()} className="btn-outline flex items-center gap-2">
+              <Upload size={16} /> Upload photos
             </button>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFile}
-            className="hidden"
-          />
+          <p className="text-xs max-w-sm" style={{ color: 'var(--muted)' }}>
+            Only a front photo? That works too. Side photos are optional but improve accuracy.
+          </p>
           <div className="text-left w-full max-w-md pt-4" style={{ borderTop: '1px solid var(--rim)' }}>
             <p className="text-[10px] tracking-[0.3em] uppercase mb-3" style={{ color: 'var(--muted)' }}>For an accurate read</p>
             <ul className="flex flex-col gap-1.5">
@@ -278,53 +204,49 @@ export function SkinAnalysis() {
         </div>
       )}
 
-      {pageState === 'camera' && (
-        <div className="flex flex-col gap-6">
-          <div className="relative flex justify-center" style={{ border: '1px solid var(--rim)', backgroundColor: '#000' }}>
-            <div aria-hidden className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="h-[78%] aspect-[3/4] rounded-[50%]" style={{ border: '2px dashed rgba(255,255,255,0.65)' }} />
-            </div>
-            <video ref={videoRef} playsInline muted className="max-h-96 w-full object-contain" style={{ transform: 'scaleX(-1)' }} />
-          </div>
-          <canvas ref={canvasRef} className="hidden" />
-          {!cameraError && (
-            <p role="status" className="text-xs text-center min-h-[1.25rem]" style={{ color: liveHint?.startsWith('✓') ? 'var(--ok)' : 'var(--muted)' }}>
-              {liveHint ?? 'Center your face in the oval, in soft light.'}
-            </p>
-          )}
-          {cameraError ? (
-            <div className="p-6 text-center" style={{ border: '1px solid rgba(185,28,28,0.4)' }}>
-              <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>{cameraError}</p>
-              <button onClick={() => fileInputRef.current?.click()} className="btn-outline">Upload Photo Instead</button>
-            </div>
-          ) : (
-            <div className="flex gap-3">
-              <button onClick={capturePhoto} className="btn-primary flex-1">Capture</button>
-              <button onClick={reset} className="btn-outline">Cancel</button>
-            </div>
-          )}
-        </div>
+      {pageState === 'camera' && camera && (
+        <GuidedCapture
+          start={camera.start}
+          single={camera.single}
+          onCapture={(view, url) => setPhoto(view, url, true)}
+          onDone={() => { setCamera(null); setPageState('review') }}
+          onCancel={() => { setCamera(null); setPageState(photos.front ? 'review' : 'idle') }}
+        />
       )}
 
-      {pageState === 'preview' && imageData && (
+      {pageState === 'review' && (
         <div className="flex flex-col gap-6">
-          <div className="p-2 flex justify-center" style={{ border: '1px solid var(--rim)', backgroundColor: 'var(--surface)' }}>
-            <img src={imageData} alt="Preview" className="max-h-96 object-contain" />
+          <div>
+            <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'var(--primary)' }}>Your photos</p>
+            <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--muted)' }}>
+              {sideCount === 2 ? 'All three angles are ready.' : 'A front photo is enough, but adding both sides gives a more reliable read, especially for cheeks, acne and texture.'}
+            </p>
           </div>
-          <PhotoCheckPanel check={photoCheck} override={override} onOverride={() => setOverride(true)} />
+          <PhotoSlots
+            photos={photos}
+            checks={checks}
+            overrides={overrides}
+            onOverride={(v) => setOverrides((o) => ({ ...o, [v]: true }))}
+            onUpload={(v) => fileInputs.current[v]?.click()}
+            onCamera={(v) => startCamera(v, !!photos[v])}
+            onRemove={removePhoto}
+          />
           <label className="flex items-start gap-3 text-xs leading-relaxed cursor-pointer" style={{ color: 'var(--muted)' }}>
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5" />
             <span>
-              I agree to send this photo to our skin-analysis partner (YouCam by Perfect Corp) to be analyzed. Ingryd doesn't keep the photo —
-              it's re-encoded without location data, analyzed, and deleted by the partner within 24 hours. Your scores are saved to your account.
+              I agree to send {sideCount > 0 ? 'these photos' : 'this photo'} to our skin-analysis partner (YouCam by Perfect Corp) to be analyzed. Ingryd doesn't keep the photos —
+              they're re-encoded without location data and analyzed. Your scores are saved to your account.
               This is not a medical device or diagnosis.
             </span>
           </label>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>
+            {1 + sideCount === 1 ? 'Front photo only' : `${1 + sideCount} photos`} · each photo counts toward your daily scan limit.
+          </p>
           <div className="flex gap-3">
-            <button onClick={runAnalysis} disabled={!consent || photoCheck === 'running' || (typeof photoCheck === 'object' && photoCheck !== null && photoCheck.blocked && !(photoCheck.overridable && override))} className="btn-primary flex-1">
-              {typeof photoCheck === 'object' && photoCheck?.issues.some((i) => i.severity === 'warn') ? 'Analyze anyway' : 'Analyze Skin'}
+            <button onClick={runAnalysis} disabled={!canAnalyze} className="btn-primary flex-1">
+              {1 + sideCount > 1 ? `Analyze ${1 + sideCount} photos` : 'Analyze front photo'}{hasWarnings && canAnalyze ? ' anyway' : ''}
             </button>
-            <button onClick={reset} className="btn-outline">Retake</button>
+            <button onClick={reset} className="btn-outline">Start over</button>
           </div>
         </div>
       )}
@@ -335,7 +257,7 @@ export function SkinAnalysis() {
             className="w-8 h-8 border-2 animate-spin"
             style={{ borderColor: 'var(--rim)', borderTopColor: 'var(--primary)' }}
           />
-          <p className="text-sm tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Analyzing photo</p>
+          <p className="text-sm tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Analyzing {1 + sideCount > 1 ? `${1 + sideCount} photos` : 'photo'}</p>
         </div>
       )}
 
@@ -383,6 +305,14 @@ export function SkinAnalysis() {
             )}
           </div>
 
+          {!sample && ((profile.views?.length ?? 0) > 0 || (profile.view_notes?.length ?? 0) > 0) && (
+            <div className="p-4 text-xs leading-relaxed flex flex-col gap-1" style={{ border: '1px solid var(--rim)', color: 'var(--muted)' }}>
+              {(profile.views?.length ?? 0) > 1 && <p>Based on your {profile.views!.join(', ').replace(/, ([^,]*)$/, ' and $1')} photos. The front photo counts the most; overlays are drawn on it.</p>}
+              {(profile.views?.length ?? 0) === 1 && <p>Based on your front photo. Add left and right photos next time for a more reliable read.</p>}
+              {(profile.view_notes ?? []).map((n) => <p key={n} style={{ color: 'var(--warn)' }}>⚠ {n}</p>)}
+            </div>
+          )}
+
           {isScan ? (
             <>
               {imageData && Object.keys(masks).length > 0 && (
@@ -395,7 +325,7 @@ export function SkinAnalysis() {
                 const progress = pair && !sample ? computeProgress(pair[0], pair[1]) : null
                 return progress ? <ProgressCard progress={progress} /> : null
               })()}
-              <FocusAreas areas={areas} onShow={show} hasMask={hasMask} />
+              <FocusAreas areas={areas} onShow={show} hasMask={hasMask} varies={profile.varies} />
               <ConcernGrid areas={areas} selected={selected} onSelect={show} hasMask={hasMask} />
             </>
           ) : (

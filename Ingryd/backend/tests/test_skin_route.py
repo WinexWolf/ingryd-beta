@@ -203,3 +203,76 @@ def test_masks_are_passed_through():
     a.concerns["pore"].mask_url = "https://example.com/pore.png?sig=1"
     p = skin_youcam.map_to_profile(a)
     assert p.masks == {"pore": "https://example.com/pore.png?sig=1"}
+
+
+# ---- multi-angle scans
+def _used(): return usage._mem.get(("user-1", usage._today()), 0)
+
+
+def test_merge_views_weights_front_double_and_flags_disagreement():
+    front, left, right = _analysis(acne=60), _analysis(acne=80), _analysis(acne=90)
+    m, view_scores, varies = skin_youcam.merge_views(front, {"left": left, "right": right})
+    assert m.concerns["acne"].ui_score == round((2 * 60 + 80 + 90) / 4)      # 72.5 -> front counts double
+    assert "acne" in varies and "pore" not in varies                         # 60 vs 90 differ by >= 15
+    assert view_scores["left"]["acne"] == 80 and set(view_scores) == {"front", "left", "right"}
+    assert m.skin_age == front.skin_age and m.skin_type == front.skin_type   # identity comes from the front photo
+
+
+def test_merge_keeps_front_masks_only():
+    front, left = _analysis(), _analysis()
+    front.concerns["acne"].mask_url = "https://front/mask"
+    left.concerns["acne"].mask_url = "https://left/mask"
+    m, _, _ = skin_youcam.merge_views(front, {"left": left})
+    assert m.concerns["acne"].mask_url == "https://front/mask"
+
+
+def test_route_three_photos_charges_three_and_merges(monkeypatch):
+    seen = []
+    async def fake(b, ct):
+        seen.append(len(b)); return _analysis(acne=[60, 80, 90][len(seen) - 1])
+    monkeypatch.setattr(skin_route, "analyze_image", fake)
+    r = client.post("/api/skin/analyze", json={"image_base64": _photo(), "left_base64": _photo(), "right_base64": _photo()})
+    p = r.json()["profile"]
+    assert r.status_code == 200 and p["views"] == ["front", "left", "right"] and len(seen) == 3
+    assert _used() == 3 and set(p["view_scores"]) == {"front", "left", "right"}
+
+
+def test_route_failed_side_photo_is_refunded_and_explained(monkeypatch):
+    calls = []
+    async def flaky(b, ct):
+        calls.append(1)
+        if len(calls) == 2: raise YouCamError("angle too steep", user_fixable=True)
+        return _analysis()
+    monkeypatch.setattr(skin_route, "analyze_image", flaky)
+    r = client.post("/api/skin/analyze", json={"image_base64": _photo(), "left_base64": _photo(), "right_base64": _photo()})
+    p = r.json()["profile"]
+    assert r.status_code == 200 and len(p["views"]) == 2 and any("couldn't be analyzed" in n for n in p["view_notes"])
+    assert _used() == 2   # only the two successful analyses count
+
+
+def test_route_front_failure_with_good_sides_is_a_clear_error(monkeypatch):
+    calls = []
+    async def front_bad(b, ct):
+        calls.append(1)
+        if len(calls) == 1: raise YouCamError("no face", user_fixable=True)
+        return _analysis()
+    monkeypatch.setattr(skin_route, "analyze_image", front_bad)
+    r = client.post("/api/skin/analyze", json={"image_base64": _photo(), "left_base64": _photo()})
+    assert r.status_code == 422
+
+
+def test_route_unreadable_side_photo_is_skipped(monkeypatch):
+    async def fake(b, ct): return _analysis()
+    monkeypatch.setattr(skin_route, "analyze_image", fake)
+    r = client.post("/api/skin/analyze", json={"image_base64": _photo(), "left_base64": "garbage"})
+    p = r.json()["profile"]
+    assert r.status_code == 200 and p["views"] == ["front"] and any("left photo couldn't be read" in n for n in p["view_notes"])
+    assert _used() == 1
+
+
+def test_reserve_all_or_nothing_with_helpful_message(monkeypatch):
+    monkeypatch.setenv("YOUCAM_USER_DAILY_CAP", "4")
+    usage.reserve("u", 3)
+    with pytest.raises(usage.LimitReached) as e:
+        usage.reserve("u", 3)
+    assert "1 photo analysis left" in e.value.message and usage._mem[("u", usage._today())] == 3

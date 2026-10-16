@@ -91,11 +91,12 @@ export async function analyzeSample(): Promise<SkinProfile> {
   }
 }
 
-export async function analyzeSkin(imageBase64: string): Promise<SkinProfile> {
+/** Front photo is required; left/right are optional and each one is a separate analysis on the server. */
+export async function analyzeSkin(photos: { front: string; left?: string; right?: string }): Promise<SkinProfile> {
   const res = await fetch(`${BASE}/skin/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-    body: JSON.stringify({ image_base64: imageBase64 }),
+    body: JSON.stringify({ image_base64: photos.front, left_base64: photos.left, right_base64: photos.right }),
   })
   const data = await handle<{ profile: SkinProfile }>(res)
   return data.profile

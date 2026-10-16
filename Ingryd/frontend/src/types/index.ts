@@ -137,6 +137,11 @@ export interface SkinProfile {
   suggested_concerns?: string[]
   areas?: ConcernArea[]
   is_sample?: boolean // canned example scan, not the user's skin
+  // Multi-angle scans: photos analyzed, per-photo concern scores, concerns where photos disagree, notes.
+  views?: ('front' | 'left' | 'right')[]
+  view_scores?: Record<string, Record<string, number>>
+  varies?: string[]
+  view_notes?: string[]
   demo?: boolean // seeded by "Load demo data"
   // What was on the user's shelf when this scan was taken (saved with the scan, no ingredients).
   routine_snapshot?: { name: string; brand?: string; slot: 'am' | 'pm' }[]

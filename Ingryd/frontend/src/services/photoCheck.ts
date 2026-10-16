@@ -8,6 +8,13 @@
  *  - "warn" = analysis will run but may be less reliable; the person decides.
  *  - If the detector can't load (offline, old browser) the check is skipped, never failed. */
 
+export type View = 'front' | 'left' | 'right'
+export interface CheckOptions {
+  view?: View            // which photo this is (default front): decides the expected head turn
+  mirrored?: boolean     // true for a mirrored selfie frame: lets us check the head turned the right way
+  fast?: boolean         // live-camera mode: smaller detector input, same rules
+}
+
 export type Severity = 'block' | 'nofaces' | 'warn'
 export interface PhotoIssue { code: string; severity: Severity; message: string }
 export interface PhotoCheck {
@@ -16,6 +23,8 @@ export interface PhotoCheck {
   issues: PhotoIssue[]
   blocked: boolean          // has a 'block' or 'nofaces' issue
   overridable: boolean      // blocked only by 'nofaces'
+  /** 0 = nose at the left jaw edge, 0.5 = facing the camera, 1 = nose at the right jaw edge (image coordinates). */
+  yaw?: number
   stats?: { facePct: number; brightness: number; sharpness: number } // for tuning/diagnostics
 }
 
@@ -31,6 +40,7 @@ export function loadDetector(): Promise<FaceApi | null> {
       try {
         const faceapi = await import('@vladmandic/face-api')
         await faceapi.nets.tinyFaceDetector.loadFromUri(`${import.meta.env.BASE_URL}models`)
+        await faceapi.nets.faceLandmark68TinyNet.loadFromUri(`${import.meta.env.BASE_URL}models`)
         return faceapi
       } catch (e) {
         console.warn('Face check unavailable, skipping:', e)
@@ -75,20 +85,47 @@ function lumaStats(c: HTMLCanvasElement, box?: { x: number; y: number; w: number
   return { mean, sharp }
 }
 
-export async function checkPhoto(src: Source): Promise<PhotoCheck> {
+type Det = Awaited<ReturnType<ReturnType<FaceApi['detectAllFaces']>['withFaceLandmarks']>>[number]
+
+/** The tiny detector is very sensitive to its input size: the same clear face can score 0.94 at one size and
+ *  nothing at the next. So we try several sizes and merge the results (a face found at any size counts once). */
+async function detectMultiScale(faceapi: FaceApi, c: HTMLCanvasElement, fast: boolean): Promise<Det[]> {
+  const sizes = fast ? [320, 512] : [320, 416, 512, 608]
+  const all: Det[] = []
+  for (const inputSize of sizes) {
+    all.push(...await faceapi.detectAllFaces(c, new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold: 0.5 })).withFaceLandmarks(true))
+  }
+  all.sort((a, b) => b.detection.score - a.detection.score)
+  const kept: Det[] = []
+  for (const d of all) {
+    const b = d.detection.box
+    const dup = kept.some((k) => {
+      const o = k.detection.box
+      const iw = Math.min(b.right, o.right) - Math.max(b.left, o.left), ih = Math.min(b.bottom, o.bottom) - Math.max(b.top, o.top)
+      return iw > 0 && ih > 0 && (iw * ih) / Math.min(b.width * b.height, o.width * o.height) > 0.5
+    })
+    if (!dup) kept.push(d)
+  }
+  return kept
+}
+
+export async function checkPhoto(src: Source, opts: CheckOptions = {}): Promise<PhotoCheck> {
+  const view: View = opts.view ?? 'front'
   const faceapi = await loadDetector()
   if (!faceapi) return SKIPPED
   const { w, h } = sizeOf(src)
   if (!w || !h) return SKIPPED
 
   const c = toCanvas(src)
-  const dets = await faceapi.detectAllFaces(c, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
-  const boxes = dets.map((d) => d.box).sort((a, b) => b.width - a.width)
+  const dets = await detectMultiScale(faceapi, c, !!opts.fast)
+  dets.sort((a, b) => b.detection.box.width - a.detection.box.width)
+  const boxes = dets.map((d) => d.detection.box)
   // Ignore tiny faces far behind the main subject (a poster, a bystander): only comparable-size faces count.
   const main = boxes[0]
   const faces = main ? boxes.filter((b) => b.width >= main.width * 0.45) : []
   const issues: PhotoIssue[] = []
   let stats: PhotoCheck['stats']
+  let yaw: number | undefined
 
   if (faces.length === 0) {
     issues.push({ code: 'no-face', severity: 'nofaces', message: "We couldn't find a face in this photo. Use a sharp, well-lit, front-facing photo of your own face." })
@@ -104,6 +141,12 @@ export async function checkPhoto(src: Source): Promise<PhotoCheck> {
     if (cut) issues.push({ code: 'cut-off', severity: 'warn', message: 'Part of your face is cut off. Keep your whole face inside the frame.' })
     else if (Math.abs(cx - 0.5) > 0.3 || Math.abs(cy - 0.5) > 0.3) issues.push({ code: 'off-center', severity: 'warn', message: 'Your face is off to one side. Center it in the frame.' })
 
+    // Head turn from the nose tip's position between the two jaw edges (landmarks 30, 0, 16).
+    const pts = dets[0].landmarks.positions
+    const span = pts[16].x - pts[0].x
+    if (span > 1) yaw = Math.max(0, Math.min(1, (pts[30].x - pts[0].x) / span))
+    if (yaw !== undefined) addPoseIssues(issues, view, yaw, opts.mirrored)
+
     const { mean, sharp: rawSharp } = lumaStats(c, { x: f.x, y: f.y, w: f.width, h: f.height })
     const sharp = rawSharp / Math.max(0.25, (mean / 128) ** 2) // darker photos have lower raw contrast; compare fairly
     stats = { facePct: Math.round(share * 100), brightness: Math.round(mean), sharpness: Math.round(sharp) }
@@ -113,7 +156,29 @@ export async function checkPhoto(src: Source): Promise<PhotoCheck> {
   }
 
   const blocked = issues.some((i) => i.severity === 'block' || i.severity === 'nofaces')
-  return { checked: true, faces: faces.length, issues, blocked, stats, overridable: blocked && issues.every((i) => i.severity !== 'block') }
+  return { checked: true, faces: faces.length, issues, blocked, yaw, stats, overridable: blocked && issues.every((i) => i.severity !== 'block') }
+}
+
+/** Pose rules. `turn` = how far the nose is from center (0 = straight on). Thresholds are deliberately
+ *  forgiving: we want "clearly turned" for side photos, not an exact angle. */
+export const TURN_MIN = 0.15   // side photos need at least this much turn (roughly 30 degrees)
+export const TURN_MAX = 0.36   // beyond this we're near full profile, where the analysis is unreliable
+export const STRAIGHT_MAX = 0.1
+
+function addPoseIssues(issues: PhotoIssue[], view: View, yaw: number, mirrored?: boolean) {
+  const turn = yaw - 0.5
+  if (view === 'front') {
+    if (Math.abs(turn) > STRAIGHT_MAX) issues.push({ code: 'not-straight', severity: 'warn', message: 'Look straight at the camera, with your nose in the middle of your face.' })
+    return
+  }
+  const t = Math.abs(turn)
+  if (t < TURN_MIN) { issues.push({ code: 'turn-more', severity: 'warn', message: `Turn your head a little more to your ${view} — about 45°, until your ${view === 'left' ? 'left' : 'right'} cheek faces the camera.` }); return }
+  if (t > TURN_MAX) { issues.push({ code: 'turn-less', severity: 'warn', message: 'That is too far round. Turn back a little so we can still see most of your face.' }); return }
+  // Direction can only be judged on a mirrored selfie frame: there, turning to your left moves the nose to the image's left.
+  if (mirrored) {
+    const wantLeft = view === 'left'
+    if ((turn < 0) !== wantLeft) issues.push({ code: 'wrong-way', severity: 'warn', message: `That's your ${wantLeft ? 'right' : 'left'} side. Turn your head the other way for this photo.` })
+  }
 }
 
 /** Loads a data-URL/blob photo into an <img> so it can be checked. */

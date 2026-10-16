@@ -9,9 +9,11 @@ You'll need to create an account (any email). Please **don't** use a photo of an
 ## Walk-through
 
 1. **Create an account** and sign in.
-2. **Skin Analysis → take or upload a selfie.**
+2. **Skin Analysis → Guided camera scan.**
    - Use soft daylight, no makeup, no filters.
-   - Tick the consent box, then tap *Analyze Skin*. It takes up to about 30 seconds.
+   - The camera asks for three photos: **front, left side, right side**. Fit your face in the oval and hold still; each photo is taken automatically (or tap *Capture*).
+   - Check the three photos, tick the consent box, then tap *Analyze 3 photos*. It takes up to about 30 seconds.
+   - Prefer to upload? Use *Upload photos*. A front photo alone works too.
    - No photo handy? Tap *See a sample scan* instead (example data, clearly labelled).
 3. **Read your results.** Check that the three focus areas make sense for your skin, and tap a concern to see where it was detected on your photo.
 4. **Tap "Apply to my profile".** Then open *My Profile* and confirm it looks right.
@@ -19,12 +21,14 @@ You'll need to create an account (any email). Please **don't** use a photo of an
 6. **My Routine.** Add 2–3 products you really use (search by name). Read "Your routine vs your skin".
 7. **Home.** Check the "Next best step". Tap *Load demo data* to see how progress over time looks, then *Remove demo data*.
 
-You have 3 live scans per day. The sample scan is unlimited.
+Each photo counts toward a limit of 6 per day, so you can do two full 3-photo scans. The sample scan is unlimited.
 
 ## Please tell us
 
 - Did anything break, look wrong, or feel slow? (A screenshot helps.)
 - Did the focus areas and overlays match what you see in the mirror?
+- Was the guided camera clear? Did the oval, the head-turn prompts and the auto-capture feel natural, or annoying?
+- Did it ever say it couldn't find your face when you were clearly in frame?
 - Was it clear *why* a product got its Fit Score?
 - Did the "what to do next" suggestions feel useful or generic?
 - Anything confusing or any step where you didn't know what to do?

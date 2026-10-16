@@ -39,10 +39,19 @@ class SkinProfile(BaseModel):
     areas: list[ConcernArea] = []
     is_sample: bool = False    # canned demo result, not the user's skin
     masks: dict[str, str] = {}
+    # Multi-angle scans: which photos were analyzed ("front", "left", "right"), each concern's score
+    # per photo, concerns where the photos disagree by a lot, and plain-language notes
+    # (e.g. a side photo that couldn't be analyzed). Masks always belong to the front photo.
+    views: list[str] = []
+    view_scores: dict[str, dict[str, int]] = {}
+    varies: list[str] = []
+    view_notes: list[str] = []
 
 
 class SkinAnalysisRequest(BaseModel):
-    image_base64: str
+    image_base64: str                 # front photo (required)
+    left_base64: str | None = None    # optional side photos: each is one more analysis
+    right_base64: str | None = None
 
 
 class SkinAnalysisResponse(BaseModel):
