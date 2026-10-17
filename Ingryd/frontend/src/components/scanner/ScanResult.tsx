@@ -40,7 +40,7 @@ export function ScanResult({ product, onReset }: Props) {
           >
             {product.barcode}
           </code>
-          {' '}is not in the Open Beauty Facts database yet.
+          {' '}isn't in our database yet.
         </p>
         <button onClick={onReset} className="btn-outline">Try Another</button>
       </div>
@@ -86,7 +86,7 @@ export function ScanResult({ product, onReset }: Props) {
         <div className="p-8 text-center" style={{ border: '1px solid var(--rim)' }}>
           <p className="text-[10px] tracking-widest uppercase mb-3" style={{ color: 'var(--muted)' }}>No ingredient data yet</p>
           <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--muted)' }}>
-            Open Beauty Facts has this product listed, but nobody's logged its ingredient list yet —
+            We know this product exists, but nobody's logged its ingredient list yet —
             so we can't score it. Try searching for a similar product, or check back later.
           </p>
         </div>

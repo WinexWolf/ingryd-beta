@@ -10,6 +10,7 @@ interface PendingProduct {
   product_name: string | null
   brand: string | null
   category: string | null
+  barcode?: string | null
   raw_text: string | null
   ingredients_parsed: string[]
   status: string
@@ -21,6 +22,7 @@ export function AdminReview() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [items, setItems] = useState<PendingProduct[]>([])
   const [busy, setBusy] = useState<string | null>(null)
+  const [notes, setNotes] = useState<Record<string, string>>({})
   const [editedCategory, setEditedCategory] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -50,7 +52,14 @@ export function AdminReview() {
     if (editedCategory[id]) {
       await supabase.from('pending_products').update({ category: editedCategory[id] }).eq('id', id)
     }
-    await fetch(`${API_BASE}/ingredients/review/${id}/approve`, { method: 'POST', headers: await authHeaders() })
+    const res = await fetch(`${API_BASE}/ingredients/review/${id}/approve`, { method: 'POST', headers: await authHeaders() })
+    const body = await res.json().catch(() => null)
+    if (!res.ok || body?.success === false) {
+      // e.g. missing brand or name: keep the item here and say why instead of silently doing nothing
+      setNotes((prev) => ({ ...prev, [id]: body?.message || body?.detail || 'Could not approve this one.' }))
+      setBusy(null)
+      return
+    }
     await loadPending()
     setBusy(null)
   }
@@ -93,6 +102,7 @@ export function AdminReview() {
         <div key={item.id} className="p-6 flex flex-col gap-4" style={{ border: '1px solid var(--rim)' }}>
           <p className="font-display text-2xl" style={{ color: 'var(--fg)' }}>{item.product_name ?? 'Unnamed'}</p>
           <p className="text-xs" style={{ color: 'var(--secondary)' }}>{item.brand ?? 'No brand given'}</p>
+          {item.barcode && <p className="text-xs font-mono" style={{ color: 'var(--muted)' }}>Barcode {item.barcode}</p>}
           <p className="text-xs" style={{ color: 'var(--muted)' }}>{item.ingredients_parsed.join(', ')}</p>
 
           <select
@@ -102,6 +112,8 @@ export function AdminReview() {
           >
             {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
+
+          {notes[item.id] && <p role="alert" className="text-xs text-danger">{notes[item.id]}</p>}
 
           <div className="flex gap-3">
             <button onClick={() => approve(item.id)} disabled={busy === item.id} className="btn-primary flex-1">

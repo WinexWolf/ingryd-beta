@@ -36,7 +36,7 @@ async def get_product_by_barcode(
 ):
     barcode = "".join(ch for ch in barcode if ch.isdigit())
     if len(barcode) not in (8, 12, 13, 14):
-        raise HTTPException(status_code=400, detail="That doesn't look like a full barcode. Barcodes have 8, 12 or 13 digits — check for a missing digit.")
+        raise HTTPException(status_code=400, detail="That doesn't look like a full barcode. Barcodes have 8, 12, 13 or 14 digits — check for a missing digit.")
     profile = _build_profile(skin_type, concerns, sensitivities, concern_scores)
     result = await lookup_barcode_with_fallback(barcode, profile)
     return result

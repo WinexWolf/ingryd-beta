@@ -45,6 +45,15 @@ class ProductScore(BaseModel):
     personal_notes: list[PersonalNote] = []
 
 
+class ProductCandidate(BaseModel):
+    """A catalog product that might be what the user scanned (when the barcode itself isn't in any database)."""
+    barcode: str
+    name: Optional[str] = None
+    brand: Optional[str] = None
+    image_url: Optional[str] = None
+    match: float = 0.0  # 0-1 name similarity
+
+
 class ProductResult(BaseModel):
     barcode: str
     name: Optional[str] = None
@@ -56,6 +65,10 @@ class ProductResult(BaseModel):
     ingredients_parsed: list[str] = []
     score: Optional[ProductScore] = None
     found: bool = True
+    # Only set when found=False: what we could work out about the barcode, plus likely catalog matches.
+    identified_name: Optional[str] = None
+    identified_brand: Optional[str] = None
+    candidates: list[ProductCandidate] = []
 
 
 class ProductSearchResponse(BaseModel):

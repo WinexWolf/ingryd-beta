@@ -1,12 +1,14 @@
 import re
 import time
-from app.models.product import ProductResult, ProductSearchResponse, SkinProfile
+from app.models.product import ProductCandidate, ProductResult, ProductSearchResponse, SkinProfile
 from app.services.scoring import score_ingredients
 from app.services.supabase_client import get_supabase
 from app.services.normalize import normalize_full_ingredients_text
 from app.services.quality_gate import is_skin_relevant, passes_quality_gate
 from app.services.open_beauty_facts import lookup_barcode as lookup_obf
 from app.services.barcodenest import lookup_barcodenest
+from app.services.barcodes import catalog_forms
+from app.services.upcitemdb import identify_barcode, clean_title
 from app.services.inciapi import lookup_inciapi_by_barcode, analyze_inci_text, extract_functions_map, extract_pregnancy_safety
 from app.services.order_analysis import concentration_tiers, detect_marketing_dose
 
@@ -78,7 +80,8 @@ async def lookup_in_catalog(gtin: str, profile: SkinProfile | None = None) -> Pr
     try:
         # The catalog stores 14-digit GTINs but scanners/users give 8, 12 or 13 digits
         # (e.g. EAN-13 3606000537750 is stored as 03606000537750). Match either form.
-        forms = sorted({gtin, gtin.zfill(14), gtin.lstrip("0").zfill(14)} if gtin.isdigit() else {gtin})
+        # Also covers UPC-A/EAN-13/EAN-8 and UPC-E (short UPC) spellings of the same code.
+        forms = sorted(set(catalog_forms(gtin))) if gtin.isdigit() else [gtin]
         response = supabase.table("product_full").select("*").in_("gtin", forms).execute()
     except Exception as e:
         print(f"[catalog] Supabase lookup_in_catalog failed: {e}")
@@ -293,6 +296,71 @@ async def _enrich_with_inciapi(result: ProductResult) -> None:
         print(f"[catalog] INCI API enrichment failed (non-fatal): {e}")
 
 
+_STOP = {"the", "and", "for", "with", "of", "a", "an", "to", "in", "by", "new", "size", "pack", "skin", "care", "face", "facial"}
+
+
+def _tokens(text: str | None) -> set[str]:
+    return {t for t in re.findall(r"[a-z0-9]+", (text or "").lower()) if t not in _STOP and len(t) > 1}
+
+
+async def find_candidates(brand: str | None, name: str | None, limit: int = 3) -> list[ProductCandidate]:
+    """Catalog products that probably are the thing described by (brand, name).
+    Searches by brand (or the most distinctive name words when there's no brand),
+    then ranks by how many of the identified words the catalog entry contains."""
+    want = _tokens(clean_title(name or "", brand))
+    brand_tokens = _tokens(brand)
+    if not want and not brand_tokens:
+        return []
+
+    queries: list[str] = []
+    if brand:
+        queries.append(brand)
+    longest = sorted(want, key=len, reverse=True)[:2]
+    queries.extend(longest)
+
+    seen: dict[str, ProductResult] = {}
+    for q in queries[:3]:
+        try:
+            res = await catalog_search_products(q, None, page=1, page_size=60)
+        except Exception:
+            continue
+        for r in res.results:
+            seen.setdefault(r.barcode, r)
+
+    ranked: list[tuple[float, ProductResult]] = []
+    for r in seen.values():
+        have = _tokens(f"{r.brand or ''} {r.name or ''}")
+        if brand_tokens and not (brand_tokens & have):
+            continue  # wrong brand: not a candidate
+        if want:
+            score = len(want & have) / len(want)
+        else:
+            score = 0.3
+        if score >= 0.5:
+            ranked.append((score, r))
+    ranked.sort(key=lambda x: (-x[0], x[1].name or ""))
+    return [
+        ProductCandidate(barcode=r.barcode, name=r.name, brand=r.brand, image_url=r.image_url, match=round(score, 2))
+        for score, r in ranked[:limit]
+    ]
+
+
+async def _unresolved(gtin: str, name: str | None, brand: str | None, image_url: str | None) -> ProductResult:
+    """Barcode with no usable ingredient data anywhere. Identify it if we can
+    (names already seen, else UPCitemdb) and suggest matching catalog products."""
+    if not (name and brand):
+        ident = await identify_barcode(gtin)
+        if ident:
+            name = name or ident.get("name")
+            brand = brand or ident.get("brand")
+            image_url = image_url or ident.get("image_url")
+    candidates = await find_candidates(brand, name) if (name or brand) else []
+    return ProductResult(
+        barcode=gtin, found=False, image_url=image_url,
+        identified_name=name, identified_brand=brand, candidates=candidates,
+    )
+
+
 async def lookup_barcode_with_fallback(gtin: str, profile: SkinProfile | None = None) -> ProductResult:
     """The full pipeline: Supabase catalog first (fast, trusted) -> OBF ->
     BarcodeNest -> normalize -> quality-gate -> write back -> return.
@@ -323,15 +391,15 @@ async def lookup_barcode_with_fallback(gtin: str, profile: SkinProfile | None = 
             ingredients_text = bn.get("ingredients_text")
 
     if not ingredients_text:
-        # Nothing anywhere had usable ingredient data.
-        return ProductResult(barcode=gtin, found=False)
+        # Nothing anywhere had usable ingredient data: work out what it is, and offer likely matches.
+        return await _unresolved(gtin, name, brand, image_url)
 
     # 4. Normalize + quality-gate + category-allowlist before trusting this
     # data at all — same safeguard the bulk import uses, applied here so a
     # mis-scanned grocery item can't pollute the catalog on a live scan.
     normalized = normalize_and_gate(gtin, brand, name, categories, ingredients_text)
     if normalized is None:
-        return ProductResult(barcode=gtin, found=False)
+        return await _unresolved(gtin, name, brand, image_url)
 
     # 5. Write back so the next scan of this barcode hits the fast path.
     write_back_to_catalog(gtin, brand, name, categories, normalized, ingredients_text)

@@ -48,6 +48,14 @@ export const SKIN_TYPES: { value: SkinType; label: string }[] = [
 
 export const CONCERN_OPTIONS = ['acne', 'texture', 'dark circles', 'aging', 'hyperpigmentation', 'redness', 'dryness']
 
+export interface ProductCandidate {
+  barcode: string
+  name?: string
+  brand?: string
+  image_url?: string
+  match: number
+}
+
 export interface ProductResult {
   barcode: string
   name?: string
@@ -59,6 +67,10 @@ export interface ProductResult {
   ingredients_parsed: string[]
   score?: ProductScore
   found: boolean
+  // only when found=false: what we could work out about the barcode + likely catalog matches
+  identified_name?: string
+  identified_brand?: string
+  candidates?: ProductCandidate[]
 }
 
 export interface RecommendedProduct {

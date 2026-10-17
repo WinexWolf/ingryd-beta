@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarcodeScanner } from '../components/scanner/BarcodeScanner'
 import { ScanResult } from '../components/scanner/ScanResult'
+import { NotFoundPanel } from '../components/scanner/NotFoundPanel'
+import { digitsOnly } from '../services/gtin'
 import { fetchProductByBarcode } from '../services/api'
 import { addScanToHistory } from '../services/history'
 import type { ProductResult } from '../types'
@@ -13,14 +15,16 @@ export function Scanner() {
   const [product, setProduct] = useState<ProductResult | null>(null)
   const [apiError, setApiError] = useState<string | null>(null)
   const [manualBarcode, setManualBarcode] = useState('')
+  const [scannedAs, setScannedAs] = useState<string | null>(null) // set when showing a catalog match for a different barcode
 
-  const handleBarcode = async (barcode: string) => {
+  const handleBarcode = async (barcode: string, from?: string) => {
     setApiError(null)
     setPageState('loading')
+    setScannedAs(from ?? null)
     try {
       const result = await fetchProductByBarcode(barcode)
       setProduct(result)
-      addScanToHistory(result)
+      if (result.found) addScanToHistory(result)
       setPageState('result')
     } catch (e: unknown) {
       setApiError(e instanceof Error ? e.message : 'Something went wrong')
@@ -32,14 +36,15 @@ export function Scanner() {
     setProduct(null)
     setApiError(null)
     setManualBarcode('')
+    setScannedAs(null)
     setPageState('scanner')
   }
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const digits = manualBarcode.replace(/\D/g, '') // tolerate spaces and dashes from copy/paste
+    const digits = digitsOnly(manualBarcode) // tolerate spaces and dashes from copy/paste
     if (![8, 12, 13, 14].includes(digits.length)) {
-      setApiError(`That has ${digits.length} digit${digits.length === 1 ? '' : 's'}. Barcodes have 8, 12 or 13 digits — check for a missing digit.`)
+      setApiError(`That has ${digits.length} digit${digits.length === 1 ? '' : 's'}. Barcodes have 8, 12, 13 or 14 digits — check for a missing digit.`)
       setPageState('error')
       return
     }
@@ -94,20 +99,33 @@ export function Scanner() {
           />
           <div className="text-center">
             <p className="text-sm tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Looking up product</p>
-            <p className="text-xs mt-1" style={{ color: 'var(--muted)', opacity: 0.5 }}>Querying Open Beauty Facts</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--muted)', opacity: 0.5 }}>Checking our catalog and open databases</p>
           </div>
         </div>
       )}
 
-      {pageState === 'result' && product && (
+      {pageState === 'result' && product && !product.found && (
+        <NotFoundPanel
+          product={product}
+          onReset={handleReset}
+          onPickCandidate={(code) => handleBarcode(code, product.barcode)}
+        />
+      )}
+
+      {pageState === 'result' && product && product.found && (
         <>
+          {scannedAs && (
+            <div className="p-4 text-sm" style={{ border: '1px solid var(--warn)', color: 'var(--fg)' }}>
+              You scanned <code style={{ color: 'var(--secondary)' }}>{scannedAs}</code>. This is the closest match in our catalog, so check it's the same product and size.
+            </div>
+          )}
           <ScanResult product={product} onReset={handleReset} />
-          {(!product.found || !product.score) && (
+          {!product.score && (
             <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ border: '1px solid var(--primary)' }}>
               <p className="text-sm" style={{ color: 'var(--fg)' }}>
-                {product.found ? "We don't have this product's ingredients yet." : "We couldn't find this barcode."} You can photograph the ingredient list on the back and we'll score it.
+                We don't have this product's ingredients yet. You can photograph the ingredient list on the back and we'll score it.
               </p>
-              <Link to="/scan-ingredients" className="btn-primary flex-shrink-0 text-center">Scan ingredient list →</Link>
+              <Link to="/scan-ingredients" state={{ barcode: product.barcode, name: product.name ?? '', brand: product.brand ?? '' }} className="btn-primary flex-shrink-0 text-center">Scan ingredient list →</Link>
             </div>
           )}
         </>

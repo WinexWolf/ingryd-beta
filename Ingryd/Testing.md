@@ -18,6 +18,7 @@ You'll need to create an account (any email). Please **don't** use a photo of an
 3. **Read your results.** Check that the three focus areas make sense for your skin, and tap a concern to see where it was detected on your photo.
 4. **Tap "Apply to my profile".** Then open *My Profile* and confirm it looks right.
 5. **Scan a product.** Use *Scan* (barcode `3606000537750` works without a camera) or *Search* and open a product you use. Look at your Fit Score and the "Better for you" suggestions.
+   **Barcode edge cases (optional):** try a barcode the app has never seen, e.g. `8809782558905`. You should see what it looks like (if identifiable), any close catalog matches, and a *Scan ingredient list* button that carries the barcode with it.
 6. **My Routine.** Add 2–3 products you really use (search by name). Read "Your routine vs your skin".
 7. **Home.** Check the "Next best step". Tap *Load demo data* to see how progress over time looks, then *Remove demo data*.
 
