@@ -105,7 +105,7 @@ export function Home() {
         </div>
 
         {/* Stats — alternate primary / secondary */}
-        <div className="mt-16 pt-8 grid grid-cols-3 gap-0 max-w-lg" style={{ borderTop: '1px solid var(--rim)' }}>
+        <div className="mt-12 sm:mt-16 pt-8 grid grid-cols-3 gap-0 w-full max-w-lg" style={{ borderTop: '1px solid var(--rim)' }}>
           {[
             { val: '9',     label: 'Skin concerns scanned', accent: 'primary' },
             { val: '2,800+', label: 'Products with full ingredients', accent: 'secondary' },
@@ -113,11 +113,11 @@ export function Home() {
           ].map((s, i) => (
             <div
               key={i}
-              className={`pr-8 ${i > 0 ? 'pl-8' : ''}`}
+              className={`min-w-0 pr-2 sm:pr-8 ${i > 0 ? 'pl-3 sm:pl-8' : ''}`}
               style={i > 0 ? { borderLeft: '1px solid var(--rim)' } : {}}
             >
-              <p className="font-display text-3xl" style={{ color: `var(--${s.accent})` }}>{s.val}</p>
-              <p className="text-[10px] tracking-widest uppercase mt-1" style={{ color: 'var(--muted)' }}>{s.label}</p>
+              <p className="font-display text-2xl sm:text-3xl whitespace-nowrap" style={{ color: `var(--${s.accent})` }}>{s.val}</p>
+              <p className="text-[9px] sm:text-[10px] tracking-wider sm:tracking-widest uppercase mt-1 leading-snug break-words" style={{ color: 'var(--muted)' }}>{s.label}</p>
             </div>
           ))}
         </div>

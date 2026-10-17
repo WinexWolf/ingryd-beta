@@ -19,6 +19,7 @@ export function ScanIngredients() {
   const [brand, setBrand] = useState('')
   const [result, setResult] = useState<ProductResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [textError, setTextError] = useState<string | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'submitted' | 'added'>('idle')
 
@@ -86,6 +87,7 @@ export function ScanIngredients() {
       const { data: { text } } = await worker.recognize(imageData)
       await worker.terminate()
       setRawText(text.trim())
+      setTextError(text.trim().length < 3 ? "We couldn't read any text in that photo. Try a sharper, brighter, flatter shot of the ingredients panel." : null)
       setPageState('review-text')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'OCR failed — try a clearer photo or type the ingredients manually.')
@@ -97,6 +99,7 @@ export function ScanIngredients() {
     if (!rawText.trim()) return
     setPageState('analyzing')
     setError(null)
+    setTextError(null)
     try {
       const analysis = await analyzeIngredients(rawText, productName || undefined)
       const synthetic: ProductResult = {
@@ -114,8 +117,15 @@ export function ScanIngredients() {
       setResult(synthetic)
       setPageState('result')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Analysis failed')
-      setPageState('error')
+      const msg = err instanceof Error ? err.message : 'Analysis failed'
+      if (/ingredient list/i.test(msg)) {
+        // Not an ingredient list: stay on the text screen so they can fix the text or retake the photo.
+        setTextError(msg)
+        setPageState('review-text')
+      } else {
+        setError(msg)
+        setPageState('error')
+      }
     }
   }
 
@@ -172,6 +182,7 @@ export function ScanIngredients() {
     setBrand('')
     setResult(null)
     setError(null)
+    setTextError(null)
     setCameraError(null)
     setSubmitStatus('idle')
     setPageState('idle')
@@ -265,9 +276,17 @@ export function ScanIngredients() {
             placeholder="Brand (optional)"
             className="input"
           />
+          {textError && (
+            <div role="alert" className="p-4 flex flex-col gap-3" style={{ border: '1px solid var(--warn)' }}>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--fg)' }}>{textError}</p>
+              <div>
+                <button onClick={reset} className="btn-outline text-xs px-4 py-2">Retake photo</button>
+              </div>
+            </div>
+          )}
           <textarea
             value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
+            onChange={(e) => { setRawText(e.target.value); if (textError) setTextError(null) }}
             rows={8}
             className="input font-sans"
             placeholder="Water, Glycerin, ..."
