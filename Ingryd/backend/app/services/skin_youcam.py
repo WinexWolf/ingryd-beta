@@ -10,7 +10,7 @@ from app.services.concerns import APP_CONCERN_KEYS, FLAG_BELOW, flagged
 from app.services.youcam import ConcernScore, YouCamAnalysis
 
 MIN_SIDE = 480          # YouCam requires short side >= 480px
-MAX_SIDE = 1600         # plenty for analysis; keeps uploads small
+MAX_SIDE = 1280         # plenty for analysis; keeps uploads small
 ATTENTION_BELOW = FLAG_BELOW  # one threshold everywhere: notes, ingredients, suggested concerns
 WATCH_BELOW = 85              # between the two: fine, but the weakest spot worth keeping an eye on
 

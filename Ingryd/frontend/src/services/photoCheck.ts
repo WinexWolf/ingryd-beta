@@ -161,8 +161,8 @@ export async function checkPhoto(src: Source, opts: CheckOptions = {}): Promise<
 
 /** Pose rules. `turn` = how far the nose is from center (0 = straight on). Thresholds are deliberately
  *  forgiving: we want "clearly turned" for side photos, not an exact angle. */
-export const TURN_MIN = 0.15   // side photos need at least this much turn (roughly 30 degrees)
-export const TURN_MAX = 0.36   // beyond this we're near full profile, where the analysis is unreliable
+export const TURN_MIN = 0.1    // side photos need at least this much turn (roughly 20 degrees)
+export const TURN_MAX = 0.2    // beyond ~35 degrees the skin-analysis engine usually rejects the photo
 export const STRAIGHT_MAX = 0.1
 
 function addPoseIssues(issues: PhotoIssue[], view: View, yaw: number, mirrored?: boolean) {
@@ -172,8 +172,8 @@ function addPoseIssues(issues: PhotoIssue[], view: View, yaw: number, mirrored?:
     return
   }
   const t = Math.abs(turn)
-  if (t < TURN_MIN) { issues.push({ code: 'turn-more', severity: 'warn', message: `Turn your head a little more to your ${view} — about 45°, until your ${view === 'left' ? 'left' : 'right'} cheek faces the camera.` }); return }
-  if (t > TURN_MAX) { issues.push({ code: 'turn-less', severity: 'warn', message: 'That is too far round. Turn back a little so we can still see most of your face.' }); return }
+  if (t < TURN_MIN) { issues.push({ code: 'turn-more', severity: 'warn', message: `Turn your head a little more to your ${view} — just a quarter turn, about 20°.` }); return }
+  if (t > TURN_MAX) { issues.push({ code: 'turn-less', severity: 'warn', message: 'That is too far round. Turn back a little — the analysis needs most of your face to stay visible.' }); return }
   // Direction can only be judged on a mirrored selfie frame: there, turning to your left moves the nose to the image's left.
   if (mirrored) {
     const wantLeft = view === 'left'

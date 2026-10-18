@@ -132,7 +132,7 @@ async def analyze_image(image_bytes: bytes, content_type: str = "image/jpeg") ->
             ), "create task")
             task_id = task["data"]["task_id"]
 
-            delay, start = 2.0, time.monotonic()
+            delay, start = 1.0, time.monotonic()
             while time.monotonic() - start < POLL_TIMEOUT_S:
                 await asyncio.sleep(delay)
                 delay = min(delay * 1.3, 6)
@@ -143,7 +143,7 @@ async def analyze_image(image_bytes: bytes, content_type: str = "image/jpeg") ->
                 if status == "success":
                     return parse_result(res)
                 if status == "error":
-                    raise YouCamError("Skin analysis failed — try a clearer, front-facing photo", user_fixable=True)
+                    raise YouCamError("Skin analysis failed — try a clearer photo, facing the camera", user_fixable=True)
             raise YouCamError("Skin analysis timed out", retryable=True)
         except (KeyError, IndexError, TypeError):
             raise YouCamError("Unexpected response from skin analysis service")

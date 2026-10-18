@@ -29,13 +29,31 @@ const TIPS = [
   'No filters or beauty mode, and wipe the lens first.',
 ]
 
-function fileToBase64(file: File): Promise<string> {
+function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
+}
+
+/** Phone photos are often 4000px+ and several MB; the analysis only needs ~1280px, so shrink before it is
+ *  checked and uploaded. Falls back to the original if the browser can't decode it. */
+async function fileToBase64(file: File): Promise<string> {
+  const original = await readAsDataUrl(file)
+  try {
+    const img = await imageFromSrc(original)
+    const longest = Math.max(img.naturalWidth, img.naturalHeight)
+    if (longest <= 1280 && file.size < 600_000) return original
+    const scale = Math.min(1, 1280 / longest)
+    const c = document.createElement('canvas')
+    c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale)
+    c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)  // browsers apply EXIF rotation when drawing
+    return c.toDataURL('image/jpeg', 0.85)
+  } catch {
+    return original
+  }
 }
 
 // `higherIsWorse`: oiliness, redness and texture scores measure how much of the issue
@@ -258,6 +276,7 @@ export function SkinAnalysis() {
             style={{ borderColor: 'var(--rim)', borderTopColor: 'var(--primary)' }}
           />
           <p className="text-sm tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Analyzing {1 + sideCount > 1 ? `${1 + sideCount} photos` : 'photo'}</p>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>Usually 10–25 seconds</p>
         </div>
       )}
 

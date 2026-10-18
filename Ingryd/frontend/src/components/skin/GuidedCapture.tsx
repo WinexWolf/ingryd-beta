@@ -6,8 +6,8 @@ const ORDER: View[] = ['front', 'left', 'right']
 const LABEL: Record<View, string> = { front: 'Front', left: 'Left side', right: 'Right side' }
 const INSTRUCTION: Record<View, string> = {
   front: 'Look straight at the camera',
-  left: 'Slowly turn your head to your left, about 45°',
-  right: 'Now slowly turn your head to your right, about 45°',
+  left: 'Turn your head slightly to your left — just a quarter turn',
+  right: 'Now turn slightly to your right — just a quarter turn',
 }
 const HOLD_TICKS = 4        // consecutive good frames (~1.8 s) before the photo is taken automatically
 const TICK_MS = 450
@@ -81,7 +81,7 @@ export function GuidedCapture({ start, single = false, onCapture, onDone, onCanc
     const video = videoRef.current
     if (!video || !video.videoWidth || lock.current) return
     lock.current = true
-    const url = frameToCanvas(video).toDataURL('image/jpeg', 0.92)
+    const url = frameToCanvas(video).toDataURL('image/jpeg', 0.85)
     setFlash(true); setTimeout(() => setFlash(false), 150)
     onCapture(v, url)
     if (last) { stopStream(); onDone(); return }

@@ -5,8 +5,8 @@ export const VIEWS: View[] = ['front', 'left', 'right']
 const TITLE: Record<View, string> = { front: 'Front', left: 'Left side', right: 'Right side' }
 const WHY: Record<View, string> = {
   front: 'Required. Look straight at the camera.',
-  left: 'Optional, recommended. Turn your head to your left (about 45°).',
-  right: 'Optional, recommended. Turn your head to your right (about 45°).',
+  left: 'Optional, recommended. Turn your head to your left (just a quarter turn).',
+  right: 'Optional, recommended. Turn your head to your right (just a quarter turn).',
 }
 
 export type Check = PhotoCheck | 'running' | null | undefined

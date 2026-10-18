@@ -18,6 +18,25 @@ log = logging.getLogger("ingryd.skin")
 
 
 SIDE_NAMES = {"left": "left", "right": "right"}
+RETRY_WAIT_S = 1.5
+
+
+async def _analyze(img: bytes) -> object:
+    """One photo -> YouCam, retrying once on a transient failure (rate limit, 5xx, timeout)."""
+    try:
+        return await analyze_image(img, "image/jpeg")
+    except YouCamError as e:
+        if not e.retryable:
+            raise
+        await asyncio.sleep(RETRY_WAIT_S)
+        return await analyze_image(img, "image/jpeg")
+
+
+def _side_note(view: str, err: Exception, others: str) -> str:
+    if isinstance(err, YouCamError) and err.user_fixable:
+        return (f"The skin-analysis engine couldn't read your {view} photo (it works best with faces turned only slightly, "
+                f"about a quarter turn), so this result uses your {others}.")
+    return f"Your {view} photo couldn't be analyzed right now, so this result uses your {others}. Try again in a minute."
 
 
 @router.post("/analyze", response_model=SkinAnalysisResponse)
@@ -44,7 +63,7 @@ async def analyze(request: SkinAnalysisRequest, user_id: str = Depends(current_u
 
         views = ["front", *side_jpegs]
         results = await asyncio.gather(
-            *(analyze_image(img, "image/jpeg") for img in (front_jpeg, *side_jpegs.values())),
+            *(_analyze(img) for img in (front_jpeg, *side_jpegs.values())),
             return_exceptions=True,
         )
         by_view = dict(zip(views, results))
@@ -55,7 +74,7 @@ async def analyze(request: SkinAnalysisRequest, user_id: str = Depends(current_u
             if isinstance(r, Exception):
                 usage.release(user_id)  # failed analyses aren't charged
                 log.warning("YouCam %s photo failed: %s", view, r)
-                notes.append(f"Your {view} photo couldn't be analyzed, so this result uses your other photo{'s' if len(side_jpegs) > 1 else ''}.")
+                notes.append(_side_note(view, r, "other photos" if len(side_jpegs) > 1 else "front photo"))
             else:
                 sides[view] = r
 

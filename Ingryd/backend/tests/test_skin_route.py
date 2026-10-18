@@ -246,8 +246,21 @@ def test_route_failed_side_photo_is_refunded_and_explained(monkeypatch):
     monkeypatch.setattr(skin_route, "analyze_image", flaky)
     r = client.post("/api/skin/analyze", json={"image_base64": _photo(), "left_base64": _photo(), "right_base64": _photo()})
     p = r.json()["profile"]
-    assert r.status_code == 200 and len(p["views"]) == 2 and any("couldn't be analyzed" in n for n in p["view_notes"])
+    assert r.status_code == 200 and len(p["views"]) == 2 and any("quarter turn" in n for n in p["view_notes"])
     assert _used() == 2   # only the two successful analyses count
+
+
+def test_route_retries_transient_failure_once(monkeypatch):
+    monkeypatch.setattr(skin_route, "RETRY_WAIT_S", 0)
+    tries = {"n": 0}
+    async def flaky(b, ct):
+        tries["n"] += 1
+        if tries["n"] == 2: raise YouCamError("rate limited", retryable=True)
+        return _analysis()
+    monkeypatch.setattr(skin_route, "analyze_image", flaky)
+    r = client.post("/api/skin/analyze", json={"image_base64": _photo(), "left_base64": _photo()})
+    p = r.json()["profile"]
+    assert r.status_code == 200 and p["views"] == ["front", "left"] and tries["n"] == 3 and p["view_notes"] == []
 
 
 def test_route_front_failure_with_good_sides_is_a_clear_error(monkeypatch):
