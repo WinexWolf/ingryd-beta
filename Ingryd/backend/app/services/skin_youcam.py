@@ -69,6 +69,12 @@ RECOMMEND = {
     "wrinkle": ["Retinol (start low, PM only)", "Peptides", "Vitamin C", "Hyaluronic acid"],
     "age_spot": ["Vitamin C", "Niacinamide", "Azelaic acid", "Tranexamic acid"],
     "dark_circle_v2": ["Caffeine", "Vitamin C", "Niacinamide"],
+    "eye_bag": ["Caffeine", "Peptides", "Retinol (start low, PM only)"],
+    "tear_trough": ["Vitamin K", "Peptides", "Hyaluronic acid"],
+    "firmness": ["Peptides", "Retinol (start low, PM only)", "Vitamin C"],
+    "radiance": ["Vitamin C", "Niacinamide", "Lactic acid"],
+    "droopy_upper_eyelid": [],
+    "droopy_lower_eyelid": [],
 }
 
 NOTES = {
@@ -81,26 +87,40 @@ NOTES = {
     "wrinkle": "Fine lines are showing — retinoids, peptides and daily sunscreen are the biggest levers.",
     "age_spot": "Dark spots detected — vitamin C in the morning and strict sunscreen use.",
     "dark_circle_v2": "Under-eye darkness detected — caffeine or vitamin C eye products plus sleep and SPF.",
+    "eye_bag": "Some puffiness under the eyes — caffeine eye products, a cool compress and enough sleep can help.",
+    "tear_trough": "A hollow under the eyes is showing — hydrating, plumping eye products and sunscreen help; it is partly structural.",
+    "firmness": "Skin firmness is lower — peptides, retinoids and daily sunscreen are the main levers.",
+    "radiance": "Skin looks a little dull — gentle exfoliation and vitamin C can bring back glow.",
+    "droopy_upper_eyelid": "Upper eyelids read a little droopy — mostly structural, so skincare has limited effect.",
+    "droopy_lower_eyelid": "Lower eyelids read a little droopy — mostly structural, so skincare has limited effect.",
 }
 
 
 TITLE = {
     "moisture": "Hydration", "oiliness": "Oil balance", "redness": "Redness",
     "acne": "Breakouts", "pore": "Pores", "texture": "Texture", "wrinkle": "Fine lines",
-    "age_spot": "Dark spots", "dark_circle_v2": "Dark circles",
+    "age_spot": "Dark spots", "dark_circle_v2": "Dark circles", "eye_bag": "Eye bags",
+    "tear_trough": "Under-eye hollows", "firmness": "Firmness", "radiance": "Radiance",
+    "droopy_upper_eyelid": "Upper eyelids", "droopy_lower_eyelid": "Lower eyelids",
 }
+# Largely structural: shown for completeness, but never flagged as something a product should fix.
+INFO_ONLY = {"droopy_upper_eyelid", "droopy_lower_eyelid"}
 
 
-def _status(score: int) -> str:
+def _status(score: int, key: str = "") -> str:
+    if key in INFO_ONLY:
+        return "watch" if score < ATTENTION_BELOW else "good"
     return "attention" if score < ATTENTION_BELOW else "watch" if score < WATCH_BELOW else "good"
 
 
 def build_areas(ui: dict[str, int]) -> list[ConcernArea]:
     """Every scanned concern, weakest first, each with a tip that fits its status."""
     out: list[ConcernArea] = []
-    for k in sorted((k for k in ui if k in TITLE), key=lambda k: ui[k]):
-        st, ings = _status(ui[k]), RECOMMEND.get(k, [])
+    for k in sorted((k for k in ui if k in TITLE), key=lambda k: (k in INFO_ONLY, ui[k])):  # informational ones last
+        st, ings = _status(ui[k], k), RECOMMEND.get(k, [])
         if st == "attention":
+            tip = NOTES[k]
+        elif st == "watch" and k in INFO_ONLY:
             tip = NOTES[k]
         elif st == "watch":
             tip = f"Your {TITLE[k].lower()} score is okay but not your strongest — {ings[0]} helps keep it from slipping."
@@ -176,7 +196,7 @@ def map_to_profile(a: YouCamAnalysis) -> SkinProfile:
     overall = round(a.overall_score) if a.overall_score is not None else round(sum(ui.values()) / len(ui))
 
     # Worst concerns first
-    flagged = sorted((k for k, v in ui.items() if v < ATTENTION_BELOW and k in RECOMMEND), key=lambda k: ui[k])
+    flagged = sorted((k for k, v in ui.items() if v < ATTENTION_BELOW and k in RECOMMEND and k not in INFO_ONLY), key=lambda k: ui[k])
     recommended: list[str] = []
     for k in flagged:
         for ing in RECOMMEND[k]:

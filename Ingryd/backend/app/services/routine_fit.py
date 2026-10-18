@@ -13,9 +13,9 @@ from app.services.scoring import CONCERN_BONUS_INGREDIENTS, score_ingredients
 CONCERNS = {
     "acne": ("Breakouts & pores", ["acne", "pore"], ["spot_treatment", "serum", "exfoliant", "toner"]),
     "texture": ("Uneven texture", ["texture"], ["exfoliant", "serum", "toner"]),
-    "dark circles": ("Dark circles", ["dark_circle_v2"], ["eye_cream"]),
+    "dark circles": ("Dark circles", ["dark_circle_v2", "eye_bag", "tear_trough"], ["eye_cream"]),
     "hyperpigmentation": ("Dark spots", ["age_spot"], ["serum"]),
-    "aging": ("Fine lines", ["wrinkle"], ["serum", "eye_cream"]),
+    "aging": ("Fine lines", ["wrinkle", "firmness"], ["serum", "eye_cream"]),
     "dryness": ("Hydration", ["moisture"], ["moisturizer", "serum", "essence"]),
     "redness": ("Redness", ["redness"], ["serum", "moisturizer"]),
 }

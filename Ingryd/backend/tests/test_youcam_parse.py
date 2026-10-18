@@ -51,3 +51,19 @@ def test_empty_output_raises():
 def test_malformed_payload_raises():
     with pytest.raises(YouCamError):
         parse_result({"data": {}})
+
+
+def test_extra_concerns_are_requested_and_can_be_switched_off(monkeypatch):
+    from app.services import youcam
+    on = youcam.requested_actions()
+    assert {"eye_bag", "firmness", "radiance", "tear_trough"} <= set(on) and "skin_type" in on
+    monkeypatch.setenv("YOUCAM_EXTRA_CONCERNS", "off")
+    assert youcam.requested_actions() == [*youcam.CORE_CONCERNS, "skin_type"]
+
+
+def test_extra_concerns_flow_into_areas_and_eyelids_never_become_focus():
+    from app.services import skin_youcam
+    ui = {"acne": 90, "eye_bag": 50, "droopy_upper_eyelid": 20, "firmness": 70}
+    areas = skin_youcam.build_areas(ui)
+    assert [a.key for a in areas][:2] == ["eye_bag", "firmness"] and areas[-1].key == "droopy_upper_eyelid"
+    assert areas[-1].status == "watch" and areas[-1].ingredients == []

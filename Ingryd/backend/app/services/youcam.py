@@ -5,17 +5,28 @@ host. Signed mask URLs in responses expire, so they are returned to the caller
 for immediate display but must not be persisted.
 """
 import asyncio
+import logging
 import os
 import time
 
 import httpx
 from pydantic import BaseModel
 
+log = logging.getLogger("ingryd.youcam")
 BASE_URL = "https://yce-api-01.makeupar.com"
-CONCERNS = [
+CORE_CONCERNS = [
     "moisture", "oiliness", "redness", "acne", "pore", "texture",
-    "wrinkle", "age_spot", "dark_circle_v2", "skin_type",
+    "wrinkle", "age_spot", "dark_circle_v2",
 ]
+# Extra SD indicators from YouCam's docs. If YouCam ever rejects one of these names, we fall back to
+# CORE_CONCERNS for that request (see analyze_image) so scanning never breaks. YOUCAM_EXTRA_CONCERNS=off disables them.
+EXTRA_CONCERNS = ["eye_bag", "tear_trough", "firmness", "radiance", "droopy_upper_eyelid", "droopy_lower_eyelid"]
+CONCERNS = CORE_CONCERNS + EXTRA_CONCERNS + ["skin_type"]  # everything parse_result understands
+
+
+def requested_actions(extras: bool = True) -> list[str]:
+    on = extras and os.environ.get("YOUCAM_EXTRA_CONCERNS", "on").lower() != "off"
+    return [*CORE_CONCERNS, *(EXTRA_CONCERNS if on else []), "skin_type"]
 POLL_TIMEOUT_S = 120
 ACCEPTED_TYPES = {"image/jpeg", "image/png"}
 
@@ -126,10 +137,18 @@ async def analyze_image(image_bytes: bytes, content_type: str = "image/jpeg") ->
             if up.status_code >= 400:
                 raise YouCamError(f"upload: failed ({up.status_code})", retryable=up.status_code >= 500)
 
-            task = _check(await client.post(
-                f"{BASE_URL}/s2s/v2.0/task/skin-analysis", headers=headers,
-                json={"src_file_id": file_id, "dst_actions": CONCERNS, "format": "json"},
-            ), "create task")
+            async def create(actions: list[str]) -> httpx.Response:
+                return await client.post(
+                    f"{BASE_URL}/s2s/v2.0/task/skin-analysis", headers=headers,
+                    json={"src_file_id": file_id, "dst_actions": actions, "format": "json"},
+                )
+
+            resp = await create(requested_actions())
+            if resp.status_code == 400 and requested_actions() != requested_actions(False):
+                # Probably one of the extra indicator names isn't accepted: retry with the proven set.
+                log.warning("YouCam rejected extended actions (%s); retrying with core set", resp.text[:200])
+                resp = await create(requested_actions(False))
+            task = _check(resp, "create task")
             task_id = task["data"]["task_id"]
 
             delay, start = 1.0, time.monotonic()

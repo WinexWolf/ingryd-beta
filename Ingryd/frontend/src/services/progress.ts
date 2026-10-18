@@ -7,6 +7,8 @@ export const MEANINGFUL = 5
 export const CONCERN_LABEL: Record<string, string> = {
   moisture: 'Hydration', oiliness: 'Oil balance', redness: 'Redness', acne: 'Breakouts', pore: 'Pores',
   texture: 'Texture', wrinkle: 'Fine lines', age_spot: 'Dark spots', dark_circle_v2: 'Dark circles',
+  eye_bag: 'Eye bags', tear_trough: 'Under-eye hollows', firmness: 'Firmness', radiance: 'Radiance',
+  droopy_upper_eyelid: 'Upper eyelids', droopy_lower_eyelid: 'Lower eyelids',
 }
 
 export type Trend = 'better' | 'worse' | 'steady'

@@ -7,9 +7,9 @@ YouCam ui_score is 0-100 where HIGHER = HEALTHIER. "Need" below is the inverse
 # The app's concern names (Profile page) -> the YouCam concerns that measure them.
 APP_CONCERN_KEYS: dict[str, list[str]] = {
     "acne": ["acne", "pore"],
-    "aging": ["wrinkle"],
+    "aging": ["wrinkle", "firmness"],
     "hyperpigmentation": ["age_spot"],
-    "dark circles": ["dark_circle_v2"],
+    "dark circles": ["dark_circle_v2", "eye_bag", "tear_trough"],
     "texture": ["texture"],
     "redness": ["redness"],
     "sensitive": ["redness"],
@@ -27,6 +27,12 @@ LABEL: dict[str, str] = {
     "redness": "redness",
     "moisture": "hydration",
     "oiliness": "oil-balance",
+    "eye_bag": "eye-bag",
+    "tear_trough": "under-eye hollow",
+    "firmness": "firmness",
+    "radiance": "radiance",
+    "droopy_upper_eyelid": "upper-eyelid",
+    "droopy_lower_eyelid": "lower-eyelid",
 }
 
 FLAG_BELOW = 75  # a concern scoring under this counts as "worth addressing"
