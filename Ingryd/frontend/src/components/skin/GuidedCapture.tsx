@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { checkPhoto, loadDetector, type View } from '../../services/photoCheck'
 
-const ORDER: View[] = ['front', 'left', 'right']
+const ORDER: View[] = ['front']
 const LABEL: Record<View, string> = { front: 'Front', left: 'Left side', right: 'Right side' }
 const INSTRUCTION: Record<View, string> = {
   front: 'Look straight at the camera',

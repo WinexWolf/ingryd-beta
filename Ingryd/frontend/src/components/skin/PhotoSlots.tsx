@@ -1,7 +1,8 @@
 import { Camera, Upload, X } from 'lucide-react'
 import type { PhotoCheck, View } from '../../services/photoCheck'
 
-export const VIEWS: View[] = ['front', 'left', 'right']
+// YouCam rejects any noticeably turned face (error_large_face_angle), so only the front view is offered.
+export const VIEWS: View[] = ['front']
 const TITLE: Record<View, string> = { front: 'Front', left: 'Left side', right: 'Right side' }
 const WHY: Record<View, string> = {
   front: 'Required. Look straight at the camera.',

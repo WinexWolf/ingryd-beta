@@ -204,8 +204,8 @@ export function SkinAnalysis() {
       {pageState === 'idle' && (
         <div className="p-6 sm:p-10 flex flex-col items-center gap-6 text-center" style={{ border: '1px solid var(--rim)' }}>
           <p className="text-sm max-w-sm leading-relaxed" style={{ color: 'var(--muted)' }}>
-            For the most accurate read, take <strong style={{ color: 'var(--fg)' }}>three photos</strong>: front, left side and right side.
-            We'll guide you, and the camera takes each photo for you once you're in position.
+            Take one <strong style={{ color: 'var(--fg)' }}>front-facing photo</strong>. We'll guide you, and the camera takes it for you once
+            you're in position: look straight at the camera, head level, face filling the oval.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <button onClick={() => startCamera('front')} className="btn-primary flex items-center gap-2">
@@ -216,7 +216,7 @@ export function SkinAnalysis() {
             </button>
           </div>
           <p className="text-xs max-w-sm" style={{ color: 'var(--muted)' }}>
-            Only a front photo? That works too. Side photos are optional but improve accuracy.
+            The skin-analysis engine only reads faces that look straight at the camera, so one good front photo is all it needs.
           </p>
           <div className="text-left w-full max-w-md pt-4" style={{ borderTop: '1px solid var(--rim)' }}>
             <p className="text-[10px] tracking-[0.3em] uppercase mb-3" style={{ color: 'var(--muted)' }}>For an accurate read</p>
@@ -245,7 +245,7 @@ export function SkinAnalysis() {
           <div>
             <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'var(--primary)' }}>Your photos</p>
             <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--muted)' }}>
-              {sideCount === 2 ? 'All three angles are ready.' : 'A front photo is enough, but adding both sides gives a more reliable read, especially for cheeks, acne and texture.'}
+              Check that your whole face is in frame, you're looking straight at the camera, and the light is even.
             </p>
           </div>
           <PhotoSlots
@@ -335,7 +335,7 @@ export function SkinAnalysis() {
           {!sample && ((profile.views?.length ?? 0) > 0 || (profile.view_notes?.length ?? 0) > 0) && (
             <div className="p-4 text-xs leading-relaxed flex flex-col gap-1" style={{ border: '1px solid var(--rim)', color: 'var(--muted)' }}>
               {(profile.views?.length ?? 0) > 1 && <p>Based on your {profile.views!.join(', ').replace(/, ([^,]*)$/, ' and $1')} photos. The front photo counts the most; overlays are drawn on it.</p>}
-              {(profile.views?.length ?? 0) === 1 && <p>Based on your front photo. Add left and right photos next time for a more reliable read.</p>}
+              {(profile.views?.length ?? 0) === 1 && <p>Based on your front photo.</p>}
               {(profile.view_notes ?? []).map((n) => <p key={n} style={{ color: 'var(--warn)' }}>⚠ {n}</p>)}
             </div>
           )}

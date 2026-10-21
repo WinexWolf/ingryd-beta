@@ -11,8 +11,8 @@ You'll need to create an account (any email). Please **don't** use a photo of an
 1. **Create an account** and sign in.
 2. **Skin Analysis → Guided camera scan.**
    - Use soft daylight, no makeup, no filters.
-   - The camera asks for three photos: **front, left side, right side**. Fit your face in the oval and hold still; each photo is taken automatically (or tap *Capture*).
-   - Check the three photos, tick the consent box, then tap *Analyze 3 photos*. It takes up to about 30 seconds.
+   - The camera asks for one **front** photo. Look straight at the camera, head level, face in the oval, and hold still; it is taken automatically (or tap *Capture*).
+   - Check the photo, tick the consent box, then tap *Analyze front photo*. It takes about 10-25 seconds.
    - Prefer to upload? Use *Upload photos*. A front photo alone works too.
    - No photo handy? Tap *See a sample scan* instead (example data, clearly labelled).
 3. **Read your results.** Check that the three focus areas make sense for your skin, and tap a concern to see where it was detected on your photo.

@@ -107,6 +107,7 @@ def parse_result(payload: dict) -> YouCamAnalysis:
 _PHOTO_PROBLEMS = {
     "error_src_face_too_small": "Your face is too small in the photo. Move closer so it fills most of the frame.",
     "error_src_face_out_of_bound": "Part of your face is outside the photo. Keep your whole face in the frame.",
+    "error_large_face_angle": "Your head is turned or tilted too far. Look straight at the camera with your head level.",
     "error_lighting_dark": "The photo is too dark. Face a window or turn on a light.",
     "error_below_min_image_size": "The photo is too small. Use a higher-resolution photo.",
     "error_exceed_max_image_size": "The photo is too large. Try a smaller one.",
@@ -197,7 +198,7 @@ async def analyze_image(image_bytes: bytes, content_type: str = "image/jpeg") ->
                 if status == "error":
                     data = res.get("data", {})
                     log.warning("YouCam task error detail: %s", str(data)[:600])
-                if status == "error" and extras_on:
+                if status == "error" and extras_on and _photo_problem(res.get("data", {})) == _GENERIC_PHOTO_PROBLEM:
                     # The engine failed with the extended set: retry once with the proven set (failed tasks cost no units).
                     # Only if that succeeds do we blame the extras; if it fails too, the photo is the problem.
                     log.warning("YouCam task errored with extended actions; retrying with core set")

@@ -150,6 +150,12 @@ export async function checkPhoto(src: Source, opts: CheckOptions = {}): Promise<
     const span = pts[16].x - pts[0].x
     if (span > 1) yaw = Math.max(0, Math.min(1, (pts[30].x - pts[0].x) / span))
     if (yaw !== undefined) addPoseIssues(issues, view, yaw, opts.mirrored)
+    // Head tilt (roll): YouCam also rejects tilted heads. Angle of the line through the two eye centres.
+    if (view === 'front' && pts.length >= 48) {
+      const mid = (a: number, b: number, k: 'x' | 'y') => { let s = 0; for (let i = a; i <= b; i++) s += pts[i][k]; return s / (b - a + 1) }
+      const roll = Math.abs(Math.atan2(mid(42, 47, 'y') - mid(36, 41, 'y'), mid(42, 47, 'x') - mid(36, 41, 'x')) * 180 / Math.PI)
+      if (roll > 9) issues.push({ code: 'tilted', severity: 'warn', message: 'Your head is tilted. Keep it level, with your eyes on a horizontal line.' })
+    }
 
     const { mean, sharp: rawSharp } = lumaStats(c, { x: f.x, y: f.y, w: f.width, h: f.height })
     const sharp = rawSharp / Math.max(0.25, (mean / 128) ** 2) // darker photos have lower raw contrast; compare fairly

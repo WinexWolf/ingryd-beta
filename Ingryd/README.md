@@ -56,15 +56,14 @@ The backend calls the YouCam Skin Analysis API (file upload â†’ analysis task â†
 - Mask images are drawn over your own photo. They are signed links that expire in about 24 hours, so they are shown immediately and **never stored**.
 - The API key lives only on the server. It is never sent to the browser or committed.
 
-### Three photos, one result
+### One front photo, 15 concerns
 
-The YouCam API analyzes one photo at a time, so a front + left + right scan is three analyses that we combine:
+The YouCam API analyzes one photo at a time and only accepts faces that look straight at the camera. In testing, even a slight head turn was rejected with `error_large_face_angle`, so the app asks for a single front-facing photo (the backend can still merge extra views, but the UI no longer offers them).
 
-- The **front photo is required** and counts double. It drives skin type, skin age and the overlay masks (masks are drawn on the front photo).
-- Each **side photo is optional**. Concern scores are a weighted average (front 50%, each side 25%; with one side, 67% / 33%).
-- When the photos disagree by 15+ points on a concern, the app says so ("may be stronger on one side of your face").
-- If a side photo can't be analyzed, the result uses the others, says so, and does not charge it against the scan limit.
-- Before upload, a **face check runs on the phone** (nothing is uploaded for it): exactly one face, big enough, in frame, lit and sharp, with the head turned the right way for each angle. Group photos and non-faces are stopped before they cost API units. The check is advisory where a face detector can be wrong (a missed face can be overridden), and strict for group photos.
+- One analysis returns up to 15 concerns: hydration, oiliness, redness, breakouts, pores, texture, fine lines, dark spots, dark circles, plus eye bags, under-eye hollows, firmness, radiance and eyelid droop (informational only), along with skin type and skin age.
+- Before upload, a **face check runs on the phone** (nothing is uploaded for it): exactly one face, in frame, lit, sharp, head straight and level. Group photos and non-faces are stopped before they cost API units. The check is advisory where a face detector can be wrong (a missed face can be overridden), and strict for group photos.
+- The photo is **cropped to the face** before upload, because YouCam wants the face to fill most of the frame, and downscaled to speed up the upload.
+- If YouCam rejects the photo, the app says why (turned or tilted too far, too small, too dark) using YouCam's own error code.
 
 ### How a scan changes the Fit Score
 
