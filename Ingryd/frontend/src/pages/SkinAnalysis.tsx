@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { Camera, Upload } from 'lucide-react'
 import { analyzeSkin, analyzeSample } from '../services/api'
 import { addSkinAnalysisToHistory, getSkinHistory, getRoutine } from '../services/history'
@@ -13,6 +13,7 @@ import { ConcernGrid } from '../components/skin/ConcernGrid'
 import { NextSteps } from '../components/skin/NextSteps'
 import { PicksForYou } from '../components/recommend/PicksForYou'
 import { checkPhoto, cropToFace, imageFromSrc, loadDetector, SKIPPED, type View } from '../services/photoCheck'
+import { UnseenAreas, unseenToConcerns, type Unseen } from '../components/skin/UnseenAreas'
 import { GuidedCapture } from '../components/skin/GuidedCapture'
 import { PhotoSlots, VIEWS, isBlocking, type Check } from '../components/skin/PhotoSlots'
 
@@ -88,6 +89,7 @@ export function SkinAnalysis() {
   const [consent, setConsent] = useState(readConsent)
   const overlayRef = useRef<HTMLDivElement>(null)
   const fileInputs = useRef<Partial<Record<View, HTMLInputElement | null>>>({})
+  const [unseen, setUnseen] = useState<Unseen>({ areas: [], concerns: [] })  // user-reported areas the scan can't see
   const [sent, setSent] = useState<Partial<Record<View, string>>>({})  // the face-cropped photos actually analyzed
   const imageData = sent.front ?? photos.front ?? null   // the overlay is drawn on the photo that was analyzed
 
@@ -142,6 +144,14 @@ export function SkinAnalysis() {
     }
   }
 
+  // The scan plus what the person reported about the edges of their face; this is what suggestions use.
+  const scanForUse = useMemo(() => {
+    if (!profile) return null
+    const extra = unseenToConcerns(unseen)
+    if (extra.length === 0) return profile
+    return { ...profile, suggested_concerns: Array.from(new Set([...(profile.suggested_concerns ?? []), ...extra])) }
+  }, [profile, unseen])
+
   const sideCount = (['left', 'right'] as View[]).filter((v) => photos[v]).length
   const blocked = VIEWS.some((v) => isBlocking(photos[v], checks[v], !!overrides[v]))
   const canAnalyze = consent && !!photos.front && !blocked
@@ -178,7 +188,7 @@ export function SkinAnalysis() {
 
   const reset = () => {
     setCamera(null)
-    setPhotos({}); setChecks({}); setOverrides({}); setSent({})
+    setPhotos({}); setChecks({}); setOverrides({}); setSent({}); setUnseen({ areas: [], concerns: [] })
     setProfile(null)
     setSelected(null)
     setError(null)
@@ -354,6 +364,7 @@ export function SkinAnalysis() {
               })()}
               <FocusAreas areas={areas} onShow={show} hasMask={hasMask} varies={profile.varies} />
               <ConcernGrid areas={areas} selected={selected} onSelect={show} hasMask={hasMask} />
+              {!sample && <UnseenAreas value={unseen} onChange={setUnseen} />}
             </>
           ) : (
             <>
@@ -388,9 +399,9 @@ export function SkinAnalysis() {
             </>
           )}
 
-          {isScan && <PicksForYou scan={profile} title="Products for your focus areas" />}
+          {isScan && <PicksForYou scan={scanForUse ?? profile} title="Products for your focus areas" />}
 
-          <ApplyToProfile scan={profile} />
+          <ApplyToProfile scan={scanForUse ?? profile} />
 
           <NextSteps />
 
