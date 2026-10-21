@@ -24,8 +24,16 @@ EXTRA_CONCERNS = ["eye_bag", "tear_trough", "firmness", "radiance", "droopy_uppe
 CONCERNS = CORE_CONCERNS + EXTRA_CONCERNS + ["skin_type"]  # everything parse_result understands
 
 
+_extras_broken = False  # set once YouCam rejects/errors on the extended set, so later scans skip straight to the core set
+
+
+def _disable_extras() -> None:
+    global _extras_broken
+    _extras_broken = True
+
+
 def requested_actions(extras: bool = True) -> list[str]:
-    on = extras and os.environ.get("YOUCAM_EXTRA_CONCERNS", "on").lower() != "off"
+    on = extras and not _extras_broken and os.environ.get("YOUCAM_EXTRA_CONCERNS", "on").lower() != "off"
     return [*CORE_CONCERNS, *(EXTRA_CONCERNS if on else []), "skin_type"]
 POLL_TIMEOUT_S = 120
 ACCEPTED_TYPES = {"image/jpeg", "image/png"}
@@ -147,10 +155,12 @@ async def analyze_image(image_bytes: bytes, content_type: str = "image/jpeg") ->
             if resp.status_code == 400 and requested_actions() != requested_actions(False):
                 # Probably one of the extra indicator names isn't accepted: retry with the proven set.
                 log.warning("YouCam rejected extended actions (%s); retrying with core set", resp.text[:200])
+                _disable_extras()
                 resp = await create(requested_actions(False))
             task = _check(resp, "create task")
             task_id = task["data"]["task_id"]
 
+            extras_on = requested_actions() != requested_actions(False)
             delay, start = 1.0, time.monotonic()
             while time.monotonic() - start < POLL_TIMEOUT_S:
                 await asyncio.sleep(delay)
@@ -161,6 +171,15 @@ async def analyze_image(image_bytes: bytes, content_type: str = "image/jpeg") ->
                 status = res.get("data", {}).get("task_status")
                 if status == "success":
                     return parse_result(res)
+                if status == "error" and extras_on:
+                    # The engine failed with the extended set: retry once with the proven set (failed tasks cost no units).
+                    log.warning("YouCam task errored with extended actions; retrying with core set")
+                    _disable_extras()
+                    extras_on = False
+                    task = _check(await create(requested_actions(False)), "create task")
+                    task_id = task["data"]["task_id"]
+                    delay, start = 1.0, time.monotonic()
+                    continue
                 if status == "error":
                     raise YouCamError("Skin analysis failed — try a clearer photo, facing the camera", user_fixable=True)
             raise YouCamError("Skin analysis timed out", retryable=True)
