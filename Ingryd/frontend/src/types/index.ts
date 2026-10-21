@@ -33,6 +33,9 @@ export interface SkinPreferences {
   skin_type?: SkinType
   concerns: string[]
   sensitivities: string[]
+  /** Latest scan: YouCam ui_score per concern (0-100, higher = healthier). */
+  concern_scores?: Record<string, number>
+  scanned_at?: string
 }
 
 export const SKIN_TYPES: { value: SkinType; label: string }[] = [
@@ -43,7 +46,15 @@ export const SKIN_TYPES: { value: SkinType; label: string }[] = [
   { value: 'sensitive', label: 'Sensitive' },
 ]
 
-export const CONCERN_OPTIONS = ['acne', 'aging', 'hyperpigmentation', 'redness', 'dryness']
+export const CONCERN_OPTIONS = ['acne', 'texture', 'dark circles', 'aging', 'hyperpigmentation', 'redness', 'dryness']
+
+export interface ProductCandidate {
+  barcode: string
+  name?: string
+  brand?: string
+  image_url?: string
+  match: number
+}
 
 export interface ProductResult {
   barcode: string
@@ -56,6 +67,45 @@ export interface ProductResult {
   ingredients_parsed: string[]
   score?: ProductScore
   found: boolean
+  // only when found=false: what we could work out about the barcode + likely catalog matches
+  identified_name?: string
+  identified_brand?: string
+  candidates?: ProductCandidate[]
+}
+
+export interface RecommendedProduct {
+  barcode: string
+  name?: string
+  brand?: string
+  category?: string
+  score: number
+  fit_score: number
+  fit_grade: GradeKey
+  reasons: string[]
+  cautions: string[]
+  delta?: number | null
+  avoids: string[]
+  ingredients_parsed: string[]
+}
+
+export interface RecommendGroup {
+  category: string
+  label: string
+  picks: RecommendedProduct[]
+}
+
+export interface RecommendResponse {
+  personalized: boolean
+  top: RecommendedProduct[]
+  groups: RecommendGroup[]
+  catalog_size: number
+}
+
+export interface AlternativesResponse {
+  category?: string | null
+  current_fit?: number | null
+  picks: RecommendedProduct[]
+  message?: string | null
 }
 
 export interface ProductSearchResponse {
@@ -72,6 +122,15 @@ export interface SkinMetric {
   label: string
 }
 
+export interface ConcernArea {
+  key: string
+  label: string
+  score: number // 0-100, higher = healthier
+  status: 'attention' | 'watch' | 'good'
+  tip: string
+  ingredients: string[]
+}
+
 export interface SkinProfile {
   hydration: SkinMetric
   oiliness: SkinMetric
@@ -80,6 +139,26 @@ export interface SkinProfile {
   overall_score: number
   recommended_ingredients: string[]
   notes: string[]
+  // Present on YouCam-powered scans; absent on older (heuristic) scans.
+  source?: 'youcam' | 'heuristic'
+  skin_type?: string | null
+  skin_age?: number | null
+  concerns?: Record<string, number>
+  skin_type_zones?: Record<string, string>
+  suggested_skin_type?: string | null
+  suggested_concerns?: string[]
+  areas?: ConcernArea[]
+  is_sample?: boolean // canned example scan, not the user's skin
+  // Multi-angle scans: photos analyzed, per-photo concern scores, concerns where photos disagree, notes.
+  views?: ('front' | 'left' | 'right')[]
+  view_scores?: Record<string, Record<string, number>>
+  varies?: string[]
+  view_notes?: string[]
+  demo?: boolean // seeded by "Load demo data"
+  // What was on the user's shelf when this scan was taken (saved with the scan, no ingredients).
+  routine_snapshot?: { name: string; brand?: string; slot: 'am' | 'pm' }[]
+  // Signed overlay URLs that expire in ~24h. Display-only: never saved to history.
+  masks?: Record<string, string>
 }
 
 export interface RoutineProductInput {
@@ -107,12 +186,48 @@ export interface RoutineCheckResponse {
   clean: boolean
 }
 
+export interface RoutineProductFit {
+  name: string
+  brand?: string | null
+  slot: 'am' | 'pm'
+  category: string
+  fit_score?: number | null
+  fit_grade?: GradeKey | null
+  working_for: string[]
+  working_against: string[]
+}
+
+export interface RoutineGap {
+  concern: string
+  label: string
+  score?: number | null
+  message: string
+  suggestion?: RecommendedProduct | null
+}
+
+export interface RoutineCovered {
+  concern: string
+  label: string
+  score?: number | null
+  products: string[]
+}
+
+export interface RoutineFitResponse {
+  headline: string
+  has_scan: boolean
+  products: RoutineProductFit[]
+  covered: RoutineCovered[]
+  gaps: RoutineGap[]
+  missing_basics: string[]
+}
+
 export type GradeKey = 'excellent' | 'good' | 'fair' | 'poor' | 'avoid'
 
 export const GRADE_CONFIG: Record<GradeKey, { label: string; color: string; bg: string; ring: string }> = {
-  excellent: { label: 'Excellent', color: 'text-moss border-moss',       bg: 'bg-moss/10',      ring: '#6F8F4C' },
-  good:      { label: 'Good',      color: 'text-ink/70 border-chalk',    bg: 'bg-chalk/20',     ring: '#B8AE8E' },
-  fair:      { label: 'Fair',      color: 'text-amber-700 border-amber-300', bg: 'bg-amber-50', ring: '#d97706' },
-  poor:      { label: 'Poor',      color: 'text-orange-700 border-orange-300', bg: 'bg-orange-50', ring: '#ea580c' },
-  avoid:     { label: 'Avoid',     color: 'text-red-700 border-red-300', bg: 'bg-red-50',       ring: '#dc2626' },
+  // colors come from CSS variables (index.css) so they stay readable in light and dark mode
+  excellent: { label: 'Excellent', color: 'grade-excellent', bg: '', ring: 'var(--g-excellent-bd)' },
+  good:      { label: 'Good',      color: 'grade-good',      bg: '', ring: 'var(--g-good-bd)' },
+  fair:      { label: 'Fair',      color: 'grade-fair',      bg: '', ring: 'var(--g-fair-bd)' },
+  poor:      { label: 'Poor',      color: 'grade-poor',      bg: '', ring: 'var(--g-poor-bd)' },
+  avoid:     { label: 'Avoid',     color: 'grade-avoid',     bg: '', ring: 'var(--g-avoid-bd)' },
 }

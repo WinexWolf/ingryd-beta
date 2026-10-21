@@ -1,5 +1,6 @@
 from app.models.product import IngredientFlag, ProductScore, SkinProfile, PersonalNote
 from app.services.allergens import match_allergen, match_prohibited
+from app.services.concerns import APP_CONCERN_KEYS, flagged, suffix, weight
 
 # ---------------------------------------------------------------------------
 # Ingredient knowledge base
@@ -285,6 +286,8 @@ CONCERN_BONUS_INGREDIENTS: dict[str, list[str]] = {
     "acne": ["salicylic acid", "niacinamide", "azelaic acid", "tea tree", "zinc"],
     "aging": ["retinol", "peptide", "ascorbic acid", "adenosine", "bakuchiol", "ferulic acid"],
     "hyperpigmentation": ["arbutin", "kojic acid", "ascorbic acid", "azelaic acid", "niacinamide"],
+    "texture": ["lactic acid", "glycolic acid", "mandelic acid", "salicylic acid", "gluconolactone", "urea", "retinol"],
+    "dark circles": ["caffeine", "phytonadione", "ascorbic acid", "niacinamide", "peptide"],
     "redness": ["centella", "allantoin", "panthenol", "bisabolol", "madecassoside"],
     "sensitive": ["centella", "allantoin", "panthenol", "bisabolol", "madecassoside"],
     "dryness": ["hyaluronic acid", "sodium hyaluronate", "glycerin", "ceramide", "squalane"],
@@ -299,50 +302,81 @@ def _any_match(ingredient_norm: str, keywords: list[str]) -> str | None:
 
 
 def _apply_personalization(result: ProductScore, ingredients: list[str], profile: SkinProfile) -> None:
+    """Fit Score. Every adjustment is scaled by how severe the matching concern is
+    on the user's latest scan (profile.concern_scores, YouCam ui_score where higher
+    = healthier). With no scan data every weight is 1.0, so behaviour is unchanged
+    for users who only filled in their profile by hand."""
     notes: list[PersonalNote] = []
     adjustment = 0
     seen_adjustments: set[str] = set()
+    scan = profile.concern_scores or {}
 
     norm_ingredients = [(ing, _normalize(ing)) for ing in ingredients]
 
-    # Skin-type-based penalties
-    if profile.skin_type == "oily":
+    def add(ing: str, reason: str, base: int, w: float) -> None:
+        nonlocal adjustment
+        amount = int(round(base * w))
+        if amount == 0:
+            amount = 1 if base > 0 else -1
+        adjustment += amount
+        notes.append(PersonalNote(ingredient=ing, reason=reason, adjustment=amount))
+
+    # --- Pore-clogging ingredients: oily skin type, OR a scan showing pore/acne need
+    oily = profile.skin_type == "oily"
+    pores_flagged = flagged(scan, ["pore", "acne"])
+    if oily or pores_flagged:
+        w = max(
+            weight(scan, ["oiliness"]) if oily else 0.0,
+            weight(scan, ["pore", "acne"]) if pores_flagged else 0.0,
+        )
+        keys = ["pore", "acne"] if pores_flagged else ["oiliness"]
+        reason = ("Comedogenic — can clog pores" if pores_flagged else "Comedogenic — can be heavy for oily skin") + suffix(scan, keys)
         for ing, norm in norm_ingredients:
             hit = _any_match(norm, list(COMEDOGENIC.keys()))
             if hit and hit not in seen_adjustments:
                 seen_adjustments.add(hit)
-                adjustment -= 5
-                notes.append(PersonalNote(ingredient=ing, reason="Comedogenic — can be heavy for oily skin", adjustment=-5))
+                add(ing, reason, -5, w)
 
-    if profile.skin_type == "dry":
+    # --- Drying alcohols: dry skin type, OR a scan showing low hydration
+    dry = profile.skin_type == "dry"
+    hydration_flagged = flagged(scan, ["moisture"])
+    if dry or hydration_flagged:
+        w = weight(scan, ["moisture"])
+        reason = "Drying alcohol — can worsen dryness" + suffix(scan, ["moisture"])
         for ing, norm in norm_ingredients:
             hit = _any_match(norm, DRYING_ALCOHOLS)
             if hit and hit not in seen_adjustments:
                 seen_adjustments.add(hit)
-                adjustment -= 5
-                notes.append(PersonalNote(ingredient=ing, reason="Drying alcohol — can worsen dryness", adjustment=-5))
+                add(ing, reason, -5, w)
 
-    if profile.skin_type == "sensitive":
+    # --- Sensitizers: sensitive skin type, OR a scan showing redness
+    sensitive = profile.skin_type == "sensitive"
+    redness_flagged = flagged(scan, ["redness"])
+    if sensitive or redness_flagged:
+        w = weight(scan, ["redness"])
+        reason = "Common sensitizer for reactive skin" + suffix(scan, ["redness"])
         for ing, norm in norm_ingredients:
             hit = _any_match(norm, SENSITIZERS)
             if hit and hit not in seen_adjustments:
                 seen_adjustments.add(hit)
-                adjustment -= 8
-                notes.append(PersonalNote(ingredient=ing, reason="Common sensitizer for reactive skin", adjustment=-8))
+                add(ing, reason, -8, w)
 
-    # Concern-based bonuses
+    # --- Concern-based bonuses, scaled by how severe that concern is
     for concern in profile.concerns:
-        bonus_list = CONCERN_BONUS_INGREDIENTS.get(concern.lower())
+        key = concern.lower()
+        bonus_list = CONCERN_BONUS_INGREDIENTS.get(key)
         if not bonus_list:
             continue
+        keys = APP_CONCERN_KEYS.get(key, [])
+        w = weight(scan, keys)
+        reason = f"Targets your {concern} concern" + suffix(scan, keys)
         for ing, norm in norm_ingredients:
             hit = _any_match(norm, bonus_list)
             if hit and hit not in seen_adjustments:
                 seen_adjustments.add(hit)
-                adjustment += 6
-                notes.append(PersonalNote(ingredient=ing, reason=f"Targets your {concern} concern", adjustment=6))
+                add(ing, reason, 6, w)
 
-    # User-declared sensitivities — always penalized, regardless of skin type
+    # --- User-declared sensitivities: always penalized, regardless of scan
     for sensitivity in profile.sensitivities:
         sens_norm = _normalize(sensitivity)
         if not sens_norm:
@@ -352,11 +386,9 @@ def _apply_personalization(result: ProductScore, ingredients: list[str], profile
                 key = f"sens:{sens_norm}"
                 if key not in seen_adjustments:
                     seen_adjustments.add(key)
-                    adjustment -= 12
-                    notes.append(PersonalNote(ingredient=ing, reason=f"You flagged a sensitivity to {sensitivity}", adjustment=-12))
+                    add(ing, f"You flagged a sensitivity to {sensitivity}", -12, 1.0)
 
-    fit_raw = result.score + adjustment
-    fit_score = max(0, min(100, fit_raw))
+    fit_score = max(0, min(100, result.score + adjustment))
 
     result.fit_score = fit_score
     result.fit_grade = _grade_for(fit_score)

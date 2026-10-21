@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { getScanHistory, getSkinHistory } from '../services/history'
 import { hasProfile } from '../services/profile'
+import { useAuth } from '../services/AuthContext'
+import { Hub } from '../components/home/Hub'
 import type { ScanHistoryEntry, SkinHistoryEntry } from '../services/history'
 import type { GradeKey } from '../types'
 import { GRADE_CONFIG } from '../types'
@@ -42,14 +44,15 @@ const scoreSteps = [
 ]
 
 const gradeColors: Record<string, { text: string; border: string; bg: string }> = {
-  moss:   { text: 'text-moss',       border: 'border-moss',       bg: 'bg-moss/10' },
-  chalk:  { text: 'text-ink/70',     border: 'border-chalk',      bg: 'bg-chalk/20' },
-  amber:  { text: 'text-amber-700',  border: 'border-amber-300',  bg: 'bg-amber-50' },
-  orange: { text: 'text-orange-700', border: 'border-orange-300', bg: 'bg-orange-50' },
-  red:    { text: 'text-red-700',    border: 'border-red-300',    bg: 'bg-red-50' },
+  moss:   { text: 'grade-excellent', border: '', bg: '' },
+  chalk:  { text: 'grade-good',      border: '', bg: '' },
+  amber:  { text: 'grade-fair',      border: '', bg: '' },
+  orange: { text: 'grade-poor',      border: '', bg: '' },
+  red:    { text: 'grade-avoid',     border: '', bg: '' },
 }
 
 export function Home() {
+  const { user } = useAuth()
   const [scans, setScans] = useState<ScanHistoryEntry[]>([])
   const [skinHistory, setSkinHistory] = useState<SkinHistoryEntry[]>([])
   const [profileSet, setProfileSet] = useState(false)
@@ -68,7 +71,10 @@ export function Home() {
   return (
     <div className="flex flex-col gap-24">
 
+      {user && <Hub />}
+
       {/* ── Hero ─────────────────────────────────────────────── */}
+      {!user && (
       <section className="pt-8 pb-4">
         <p className="text-[10px] tracking-[0.4em] uppercase mb-6 font-sans" style={{ color: 'var(--muted)' }}>
           Skincare, decoded
@@ -83,7 +89,7 @@ export function Home() {
           <div className="h-px w-8" style={{ backgroundColor: 'var(--secondary)', opacity: 0.4 }} />
         </div>
 
-        <h1 className="font-display text-7xl sm:text-8xl lg:text-9xl leading-[0.92] mb-8" style={{ color: 'var(--fg)' }}>
+        <h1 className="font-display text-5xl min-[400px]:text-6xl sm:text-8xl lg:text-9xl leading-[0.92] mb-8" style={{ color: 'var(--fg)' }}>
           Know what's
           <br />
           <span className="shimmer-text">on your skin.</span>
@@ -99,23 +105,24 @@ export function Home() {
         </div>
 
         {/* Stats — alternate primary / secondary */}
-        <div className="mt-16 pt-8 grid grid-cols-3 gap-0 max-w-lg" style={{ borderTop: '1px solid var(--rim)' }}>
+        <div className="mt-12 sm:mt-16 pt-8 grid grid-cols-3 gap-0 w-full max-w-lg" style={{ borderTop: '1px solid var(--rim)' }}>
           {[
-            { val: '50K+', label: 'Ingredients tracked', accent: 'primary' },
-            { val: '3M+',  label: 'Products in database', accent: 'secondary' },
-            { val: '100',  label: 'Point scoring scale', accent: 'primary' },
+            { val: '9',     label: 'Skin concerns scanned', accent: 'primary' },
+            { val: '2,800+', label: 'Products with full ingredients', accent: 'secondary' },
+            { val: '100',   label: 'Point scoring scale', accent: 'primary' },
           ].map((s, i) => (
             <div
               key={i}
-              className={`pr-8 ${i > 0 ? 'pl-8' : ''}`}
+              className={`min-w-0 pr-2 sm:pr-8 ${i > 0 ? 'pl-3 sm:pl-8' : ''}`}
               style={i > 0 ? { borderLeft: '1px solid var(--rim)' } : {}}
             >
-              <p className="font-display text-3xl" style={{ color: `var(--${s.accent})` }}>{s.val}</p>
-              <p className="text-[10px] tracking-widest uppercase mt-1" style={{ color: 'var(--muted)' }}>{s.label}</p>
+              <p className="font-display text-2xl sm:text-3xl whitespace-nowrap" style={{ color: `var(--${s.accent})` }}>{s.val}</p>
+              <p className="text-[9px] sm:text-[10px] tracking-wider sm:tracking-widest uppercase mt-1 leading-snug break-words" style={{ color: 'var(--muted)' }}>{s.label}</p>
             </div>
           ))}
         </div>
       </section>
+      )}
 
       {/* ── Profile prompt ────────────────────────────────────── */}
       {!profileSet && (
@@ -137,18 +144,18 @@ export function Home() {
       {hasActivity && (
         <section>
           <div className="flex items-end justify-between mb-8 pb-4" style={{ borderBottom: '1px solid var(--rim)' }}>
-            <h2 className="font-display text-4xl" style={{ color: 'var(--fg)' }}>Your Skin Tracker</h2>
+            <h2 className="font-display text-4xl" style={{ color: 'var(--fg)' }}>{user ? 'Recent Activity' : 'Your Skin Tracker'}</h2>
             <span className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>
               {scans.length} scans · {skinHistory.length} skin checks
             </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-0" style={{ border: '1px solid var(--rim)' }}>
-            {/* Latest skin score */}
-            <div className="p-6 flex flex-col gap-4" style={{ borderBottom: '1px solid var(--rim)' }}>
+          <div className={`grid grid-cols-1 ${user ? '' : 'sm:grid-cols-2'} gap-0`} style={{ border: '1px solid var(--rim)' }}>
+            {/* Latest skin score (the signed-in hub already shows this) */}
+            {!user && <div className="p-6 flex flex-col gap-4" style={{ borderBottom: '1px solid var(--rim)' }}>
               <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Latest skin score</p>
               {latestSkin ? (
                 <div className="flex items-end gap-4">
-                  <span className="font-display text-5xl" style={{ color: 'var(--fg)' }}>{latestSkin.profile.overall_score}</span>
+                  <span className="font-display text-4xl sm:text-5xl" style={{ color: 'var(--fg)' }}>{latestSkin.profile.overall_score}</span>
                   <span className="text-xs pb-2" style={{ color: 'var(--muted)' }}>
                     {new Date(latestSkin.timestamp).toLocaleDateString()}
                   </span>
@@ -158,7 +165,7 @@ export function Home() {
                   Run your first skin analysis →
                 </Link>
               )}
-            </div>
+            </div>}
             {/* Recent scans */}
             <div className="p-6 flex flex-col gap-4 sm:border-l" style={{ borderBottom: '1px solid var(--rim)', borderColor: 'var(--rim)' }}>
               <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--muted)' }}>Recently scanned</p>
@@ -285,16 +292,16 @@ export function Home() {
             return (
               <div
                 key={s.grade}
-                className={`flex items-center justify-between px-6 py-4 ${c.bg}`}
-                style={i < scoreSteps.length - 1 ? { borderBottom: '1px solid var(--rim)' } : {}}
+                className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4"
+                style={{ ...(i < scoreSteps.length - 1 ? { borderBottom: '1px solid var(--rim)' } : {}), backgroundColor: `var(--g-${s.grade.toLowerCase()}-bg)` }}
               >
-                <div className="flex items-center gap-6">
-                  <span className={`text-xs font-semibold tracking-widest uppercase px-3 py-1 border ${c.text} ${c.border}`}>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 min-w-0">
+                  <span className={`self-start text-xs font-semibold tracking-widest uppercase px-3 py-1 border ${c.text}`}>
                     {s.grade}
                   </span>
                   <span className="text-sm" style={{ color: 'var(--muted)' }}>{s.desc}</span>
                 </div>
-                <span className="text-xs font-mono" style={{ color: 'var(--muted)' }}>{s.label}</span>
+                <span className="text-xs font-mono whitespace-nowrap flex-shrink-0" style={{ color: 'var(--muted)' }}>{s.label}</span>
               </div>
             )
           })}

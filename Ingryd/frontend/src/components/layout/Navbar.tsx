@@ -8,11 +8,16 @@ import { useAuth } from '../../services/AuthContext'
 
 const links = [
   { to: '/scan', label: 'Scan', active: true },
-  { to: '/scan-ingredients', label: 'Scan Ingredients', active: true },
   { to: '/skin-analysis', label: 'Skin Analysis', active: true },
   { to: '/search', label: 'Products', active: true },
   { to: '/routine', label: 'Routine', active: true },
 ]
+
+// A link is "current" for its own page and anything beneath it; the barcode scan also owns the ingredient scan.
+function isCurrent(pathname: string, to: string) {
+  if (to === '/scan' && pathname.startsWith('/scan-ingredients')) return true
+  return pathname === to || pathname.startsWith(to + '/')
+}
 
 export function Navbar() {
   const { pathname } = useLocation()
@@ -21,6 +26,7 @@ export function Navbar() {
   const { user, signOut } = useAuth()
   const [profileSet, setProfileSet] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const onProfile = pathname.startsWith('/profile')
 
   useEffect(() => {
     let cancelled = false
@@ -64,7 +70,7 @@ export function Navbar() {
         {/* Desktop nav + toggle */}
         <div className="hidden sm:flex items-center gap-0">
           {links.map((link) => {
-            const isActive = pathname === link.to
+            const isActive = isCurrent(pathname, link.to)
             return (
               <div key={link.to} className="relative">
                 <Link
@@ -94,8 +100,8 @@ export function Navbar() {
               to="/profile"
               className="ml-2 flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-widest uppercase font-semibold rounded-full transition-colors duration-150"
               style={{
-                border: `1px solid ${profileSet ? 'var(--primary)' : 'var(--rim)'}`,
-                color: profileSet ? 'var(--primary)' : 'var(--muted)',
+                border: `1px solid ${onProfile ? 'var(--primary)' : 'var(--rim)'}`,
+                color: onProfile ? 'var(--primary)' : profileSet ? 'var(--fg)' : 'var(--muted)',
               }}
             >
               {profileSet ? 'My Profile' : 'Set Up Profile'}
@@ -136,7 +142,7 @@ export function Navbar() {
           style={{ backgroundColor: 'var(--bg)', borderTop: '1px solid var(--rim)' }}
         >
           {links.map((link) => {
-            const isActive = pathname === link.to
+            const isActive = isCurrent(pathname, link.to)
             return (
               <Link
                 key={link.to}
@@ -160,7 +166,7 @@ export function Navbar() {
               to="/profile"
               onClick={() => setMenuOpen(false)}
               className="px-6 py-4 text-sm tracking-widest uppercase font-semibold"
-              style={{ color: profileSet ? 'var(--primary)' : 'var(--muted)' }}
+              style={{ color: onProfile ? 'var(--primary)' : profileSet ? 'var(--fg)' : 'var(--muted)' }}
             >
               {profileSet ? 'My Profile' : 'Set Up Profile'}
             </Link>

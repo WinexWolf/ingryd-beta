@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../services/AuthContext'
+import { PasswordField } from '../components/auth/PasswordField'
+import { checkPassword } from '../services/passwordRules'
 
 export function ResetPassword() {
   const navigate = useNavigate()
@@ -15,6 +17,10 @@ export function ResetPassword() {
     e.preventDefault()
     setError(null)
 
+    if (!checkPassword(password).valid) {
+      setError('Please choose a password that meets every requirement in the checklist.')
+      return
+    }
     if (password !== confirm) {
       setError("Passwords don't match.")
       return
@@ -49,26 +55,15 @@ export function ResetPassword() {
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="New password"
-          required
-          minLength={6}
-          className="input"
-        />
-        <input
-          type="password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          placeholder="Confirm new password"
-          required
-          minLength={6}
-          className="input"
-        />
-        {error && <p className="text-xs text-red-700">{error}</p>}
-        <button type="submit" disabled={busy} className="btn-primary">
+        <PasswordField value={password} onChange={setPassword} placeholder="New password" showRules autoComplete="new-password" />
+        <PasswordField value={confirm} onChange={setConfirm} placeholder="Confirm new password" autoComplete="new-password" />
+        {confirm.length > 0 && (
+          <p className="text-xs" style={{ color: password === confirm ? 'var(--ok)' : 'var(--danger)' }}>
+            {password === confirm ? '✓ Passwords match' : "Passwords don't match yet"}
+          </p>
+        )}
+        {error && <p className="text-xs text-danger">{error}</p>}
+        <button type="submit" disabled={busy || !checkPassword(password).valid || password !== confirm} className="btn-primary">
           {busy ? 'Please wait…' : 'Update Password'}
         </button>
       </form>

@@ -32,7 +32,7 @@ function ScanOverlay({ state }: { state: ScanState }) {
 
 export function BarcodeScanner({ onDetected }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const { state, result, error, startScanning, stopScanning, reset } = useBarcode()
+  const { state, result, error, torchSupported, torchOn, toggleTorch, startScanning, stopScanning, reset } = useBarcode()
 
   useEffect(() => {
     if (state === 'found' && result) {
@@ -88,7 +88,7 @@ export function BarcodeScanner({ onDetected }: Props) {
             className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 text-center"
             style={{ backgroundColor: 'var(--surface)' }}
           >
-            <p className="text-[10px] tracking-widest uppercase text-red-700">Camera error</p>
+            <p className="text-[10px] tracking-widest uppercase text-danger">Camera error</p>
             <p className="text-xs" style={{ color: 'var(--muted)' }}>{error}</p>
           </div>
         )}
@@ -101,13 +101,16 @@ export function BarcodeScanner({ onDetected }: Props) {
         {(state === 'scanning' || state === 'starting') && (
           <button onClick={stopScanning} className="btn-ghost">Stop</button>
         )}
+        {state === 'scanning' && torchSupported && (
+          <button onClick={toggleTorch} aria-pressed={torchOn} className="btn-ghost">{torchOn ? 'Light off' : 'Light on'}</button>
+        )}
         {(state === 'found' || state === 'error') && (
           <button onClick={reset} className="btn-outline">Scan Again</button>
         )}
       </div>
 
       <p className="text-xs tracking-wide text-center max-w-xs" style={{ color: 'var(--muted)' }}>
-        Point your camera at the EAN or UPC barcode on the back of any beauty or skincare product.
+        Point your camera at the EAN or UPC barcode on the back of any beauty or skincare product. Hold it steady about a hand's width away, and use the light if it's dim.
       </p>
     </div>
   )

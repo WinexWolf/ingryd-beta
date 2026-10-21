@@ -5,8 +5,14 @@ import type {
   RoutineProductInput,
   RoutineCheckResponse,
   ProductScore,
+  RecommendResponse,
+  AlternativesResponse,
+  SkinPreferences,
+  RoutineFitResponse,
 } from '../types'
 import { getProfile, profileToQueryParams } from './profile'
+import { supabase } from './supabaseClient'
+import { sampleFallback } from './demoData'
 
 const BASE = (import.meta as any).env?.VITE_API_BASE_URL || '/api'
 
@@ -38,11 +44,59 @@ export async function browseProducts(page = 1, pageSize = 30, sort: SortMode = '
   return handle<ProductSearchResponse>(res)
 }
 
-export async function analyzeSkin(imageBase64: string): Promise<SkinProfile> {
-  const res = await fetch(`${BASE}/skin/analyze`, {
+/** Best catalog picks for the user. Pass `prefs` to rank against a profile that is not saved yet
+ *  (e.g. a scan the user hasn't applied), otherwise the saved profile is used. */
+export async function getRecommendations(prefs?: SkinPreferences | null, groups = 4, perGroup = 3): Promise<RecommendResponse> {
+  const profile = prefs === undefined ? await getProfile() : prefs
+  const res = await fetch(`${BASE}/products/recommend?groups=${groups}&per_group=${perGroup}${profileToQueryParams(profile)}`)
+  return handle<RecommendResponse>(res)
+}
+
+/** "Better for you": same-type products that score higher than `product` for this user. */
+export async function getAlternatives(product: ProductResult, limit = 3): Promise<AlternativesResponse> {
+  const profile = await getProfile()
+  const res = await fetch(`${BASE}/products/alternatives`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image_base64: imageBase64 }),
+    body: JSON.stringify({
+      barcode: product.barcode || undefined,
+      category: product.categories || undefined,
+      ingredients: product.ingredients_parsed,
+      current_fit: product.score?.fit_score ?? product.score?.score,
+      limit,
+      profile: profile
+        ? { skin_type: profile.skin_type, concerns: profile.concerns, sensitivities: profile.sensitivities, concern_scores: profile.concern_scores ?? {} }
+        : undefined,
+    }),
+  })
+  return handle<AlternativesResponse>(res)
+}
+
+/** The signed-in user's access token, for endpoints that must know who is calling. */
+export async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/** A canned example scan: no photo, no sign-in, no API units. */
+export async function analyzeSample(): Promise<SkinProfile> {
+  try {
+    const res = await fetch(`${BASE}/skin/sample`, { method: 'POST' })
+    const data = await handle<{ profile: SkinProfile }>(res)
+    return data.profile
+  } catch {
+    // Server asleep / older version / blocked: the sample is static, so use the built-in copy.
+    return sampleFallback()
+  }
+}
+
+/** Front photo is required; left/right are optional and each one is a separate analysis on the server. */
+export async function analyzeSkin(photos: { front: string; left?: string; right?: string }): Promise<SkinProfile> {
+  const res = await fetch(`${BASE}/skin/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+    body: JSON.stringify({ image_base64: photos.front, left_base64: photos.left, right_base64: photos.right }),
   })
   const data = await handle<{ profile: SkinProfile }>(res)
   return data.profile
@@ -55,6 +109,22 @@ export async function checkRoutine(products: RoutineProductInput[]): Promise<Rou
     body: JSON.stringify({ products }),
   })
   return handle<RoutineCheckResponse>(res)
+}
+
+/** Routine vs. the user's latest scan: what's working, what's working against them, what's missing. */
+export async function getRoutineFit(products: RoutineProductInput[]): Promise<RoutineFitResponse> {
+  const profile = await getProfile()
+  const res = await fetch(`${BASE}/routine/fit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      products: products.map((p) => ({ name: p.name, brand: p.brand, slot: p.slot, ingredients_parsed: p.ingredients_parsed })),
+      profile: profile
+        ? { skin_type: profile.skin_type, concerns: profile.concerns, sensitivities: profile.sensitivities, concern_scores: profile.concern_scores ?? {} }
+        : undefined,
+    }),
+  })
+  return handle<RoutineFitResponse>(res)
 }
 
 export interface IngredientAnalysisResult {
@@ -73,7 +143,26 @@ export async function analyzeIngredients(rawText: string, productName?: string):
       skin_type: profile?.skin_type,
       concerns: profile?.concerns ?? [],
       sensitivities: profile?.sensitivities ?? [],
+      concern_scores: profile?.concern_scores ?? {},
     }),
   })
   return handle<IngredientAnalysisResult>(res)
+}
+
+export interface ProductSuggestion {
+  barcode: string
+  name: string
+  brand: string | null
+}
+
+/** Type-ahead suggestions for product search boxes. Fails quietly: suggestions are a nicety. */
+export async function suggestProducts(q: string, signal?: AbortSignal): Promise<ProductSuggestion[]> {
+  try {
+    const res = await fetch(`${BASE}/products/suggest?q=${encodeURIComponent(q)}`, { signal })
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.suggestions ?? []
+  } catch {
+    return []
+  }
 }

@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { Camera, Upload } from 'lucide-react'
 import { createWorker } from 'tesseract.js'
 import { analyzeIngredients } from '../services/api'
@@ -10,14 +11,21 @@ import type { ProductResult } from '../types'
 type PageState = 'idle' | 'camera' | 'preview' | 'ocr' | 'review-text' | 'analyzing' | 'result' | 'error'
 
 export function ScanIngredients() {
+  // Arriving from a barcode that no database knew: remember it so the submission can teach us that barcode.
+  const incoming = (useLocation().state ?? null) as { barcode?: string; name?: string; brand?: string } | null
+  const barcode = (incoming?.barcode ?? '').replace(/\D/g, '')
   const [pageState, setPageState] = useState<PageState>('idle')
   const [imageData, setImageData] = useState<string | null>(null)
   const [ocrProgress, setOcrProgress] = useState(0)
   const [rawText, setRawText] = useState('')
-  const [productName, setProductName] = useState('')
-  const [brand, setBrand] = useState('')
+  const [productName, setProductName] = useState(incoming?.name ?? '')
+  const [brand, setBrand] = useState(incoming?.brand ?? '')
   const [result, setResult] = useState<ProductResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [textError, setTextError] = useState<string | null>(null)
+  const [submitHint, setSubmitHint] = useState<string | null>(null)
+  const [routineBusy, setRoutineBusy] = useState(false)
+  const [routineAdded, setRoutineAdded] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'submitted' | 'added'>('idle')
 
@@ -85,6 +93,7 @@ export function ScanIngredients() {
       const { data: { text } } = await worker.recognize(imageData)
       await worker.terminate()
       setRawText(text.trim())
+      setTextError(text.trim().length < 3 ? "We couldn't read any text in that photo. Try a sharper, brighter, flatter shot of the ingredients panel." : null)
       setPageState('review-text')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'OCR failed — try a clearer photo or type the ingredients manually.')
@@ -96,10 +105,11 @@ export function ScanIngredients() {
     if (!rawText.trim()) return
     setPageState('analyzing')
     setError(null)
+    setTextError(null)
     try {
       const analysis = await analyzeIngredients(rawText, productName || undefined)
       const synthetic: ProductResult = {
-        barcode: '',
+        barcode,
         name: productName || 'Scanned Product',
         brand: brand || undefined,
         categories: undefined,
@@ -113,38 +123,56 @@ export function ScanIngredients() {
       setResult(synthetic)
       setPageState('result')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Analysis failed')
-      setPageState('error')
+      const msg = err instanceof Error ? err.message : 'Analysis failed'
+      if (/ingredient list/i.test(msg)) {
+        // Not an ingredient list: stay on the text screen so they can fix the text or retake the photo.
+        setTextError(msg)
+        setPageState('review-text')
+      } else {
+        setError(msg)
+        setPageState('error')
+      }
     }
   }
 
   const addToRoutine = async (slot: 'am' | 'pm') => {
     if (!result) return
-    setSubmitStatus('submitting')
+    setRoutineBusy(true)
     const added = await addRoutineItem({
-      name: result.name ?? 'Scanned Product',
-      brand: result.brand ?? undefined,
+      name: productName.trim() || result.name || 'Scanned Product',
+      brand: brand.trim() || result.brand || undefined,
       slot,
       ingredients_parsed: result.ingredients_parsed,
     })
-    setSubmitStatus(added ? 'added' : 'idle')
+    setRoutineBusy(false)
+    setRoutineAdded(!!added)
   }
 
   const submitForReview = async () => {
     if (!result) return
+    if (!productName.trim() || !brand.trim()) {
+      setSubmitHint('Add the brand and product name first. We need both to add it to the catalog.')
+      return
+    }
+    setSubmitHint(null)
     setSubmitStatus('submitting')
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       setSubmitStatus('idle')
       return
     }
-    const { error: insertError } = await supabase.from('pending_products').insert({
+    const row: Record<string, unknown> = {
       submitted_by: user.id,
       raw_text: rawText,
-      product_name: result.name,
-      brand: result.brand,
+      product_name: productName.trim(),
+      brand: brand.trim(),
       ingredients_parsed: result.ingredients_parsed,
-    })
+    }
+    let { error: insertError } = await supabase.from('pending_products').insert(barcode ? { ...row, barcode } : row)
+    if (insertError && barcode && /barcode/i.test(insertError.message ?? '')) {
+      // The barcode column hasn't been added to this database yet (see db/migrations/003): still save the submission.
+      ;({ error: insertError } = await supabase.from('pending_products').insert(row))
+    }
 
     if (!insertError) {
       // Best-effort — a failed notification shouldn't undo a successful submission.
@@ -153,8 +181,8 @@ export function ScanIngredients() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          product_name: result.name,
-          brand: result.brand,
+          product_name: productName.trim(),
+          brand: brand.trim(),
           ingredient_count: result.ingredients_parsed.length,
         }),
       }).catch(() => {})
@@ -171,6 +199,9 @@ export function ScanIngredients() {
     setBrand('')
     setResult(null)
     setError(null)
+    setTextError(null)
+    setSubmitHint(null)
+    setRoutineAdded(false)
     setCameraError(null)
     setSubmitStatus('idle')
     setPageState('idle')
@@ -181,12 +212,21 @@ export function ScanIngredients() {
     <div className="max-w-2xl mx-auto flex flex-col gap-10">
       <div className="pb-6" style={{ borderBottom: '1px solid var(--rim)' }}>
         <p className="text-[10px] tracking-[0.4em] uppercase mb-2" style={{ color: 'var(--muted)' }}>No barcode? No problem</p>
-        <h1 className="font-display text-5xl" style={{ color: 'var(--fg)' }}>Scan Ingredients</h1>
+        <h1 className="font-display text-4xl sm:text-5xl" style={{ color: 'var(--fg)' }}>Scan Ingredients</h1>
+        <Link to="/scan" className="text-xs underline inline-block mt-3" style={{ color: 'var(--primary)' }}>← Back to barcode scan</Link>
         <p className="text-sm mt-4 leading-relaxed" style={{ color: 'var(--muted)' }}>
           Photograph the ingredients panel directly — works for products without a scannable barcode.
           Text extraction happens right on your device. You'll get a chance to fix any misreads before we analyze it.
         </p>
       </div>
+
+      {barcode && (pageState === 'idle' || pageState === 'preview' || pageState === 'review-text') && (
+        <div className="p-4 text-sm" style={{ border: '1px solid var(--primary)', color: 'var(--fg)' }}>
+          Adding barcode <code style={{ color: 'var(--secondary)' }}>{barcode}</code>
+          {incoming?.name || incoming?.brand ? <> ({[incoming?.brand, incoming?.name].filter(Boolean).join(' · ')})</> : null}.
+          {' '}Once we've reviewed your scan, this barcode will work for everyone.
+        </div>
+      )}
 
       {pageState === 'idle' && (
         <div className="p-10 flex flex-col items-center gap-6 text-center" style={{ border: '1px solid var(--rim)' }}>
@@ -253,19 +293,27 @@ export function ScanIngredients() {
             type="text"
             value={productName}
             onChange={(e) => setProductName(e.target.value)}
-            placeholder="Product name (optional, helps with the marketing-dose check)"
+            placeholder={barcode ? 'Product name (needed to add it to the catalog)' : 'Product name (optional, helps with the marketing-dose check)'}
             className="input"
           />
           <input
             type="text"
             value={brand}
             onChange={(e) => setBrand(e.target.value)}
-            placeholder="Brand (optional)"
+            placeholder={barcode ? 'Brand (needed to add it to the catalog)' : 'Brand (optional)'}
             className="input"
           />
+          {textError && (
+            <div role="alert" className="p-4 flex flex-col gap-3" style={{ border: '1px solid var(--warn)' }}>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--fg)' }}>{textError}</p>
+              <div>
+                <button onClick={reset} className="btn-outline text-xs px-4 py-2">Retake photo</button>
+              </div>
+            </div>
+          )}
           <textarea
             value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
+            onChange={(e) => { setRawText(e.target.value); if (textError) setTextError(null) }}
             rows={8}
             className="input font-sans"
             placeholder="Water, Glycerin, ..."
@@ -286,7 +334,7 @@ export function ScanIngredients() {
 
       {pageState === 'error' && (
         <div className="p-10 text-center" style={{ border: '1px solid rgba(185,28,28,0.4)' }}>
-          <p className="text-[10px] tracking-widest uppercase text-red-700 mb-3">Something went wrong</p>
+          <p className="text-[10px] tracking-widest uppercase text-danger mb-3">Something went wrong</p>
           <p className="text-sm mb-8" style={{ color: 'var(--muted)' }}>{error}</p>
           <button onClick={reset} className="btn-outline">Try Again</button>
         </div>
@@ -300,23 +348,31 @@ export function ScanIngredients() {
             <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'var(--muted)' }}>
               Not in our catalog yet — what next?
             </p>
+            {submitStatus !== 'submitted' && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input type="text" value={brand} onChange={(e) => { setBrand(e.target.value); setSubmitHint(null) }} placeholder="Brand" aria-label="Brand" className="input" />
+                <input type="text" value={productName} onChange={(e) => { setProductName(e.target.value); setSubmitHint(null) }} placeholder="Product name" aria-label="Product name" className="input" />
+              </div>
+            )}
+            {submitHint && <p role="alert" className="text-xs" style={{ color: 'var(--warn)' }}>{submitHint}</p>}
             <div className="flex flex-wrap gap-3">
-              <button onClick={() => addToRoutine('am')} disabled={submitStatus === 'submitting'} className="btn-outline">
+              <button onClick={() => addToRoutine('am')} disabled={routineBusy} className="btn-outline">
                 Add to Morning Routine
               </button>
-              <button onClick={() => addToRoutine('pm')} disabled={submitStatus === 'submitting'} className="btn-outline">
+              <button onClick={() => addToRoutine('pm')} disabled={routineBusy} className="btn-outline">
                 Add to Evening Routine
               </button>
               <button onClick={submitForReview} disabled={submitStatus !== 'idle'} className="btn-primary">
                 {submitStatus === 'submitted' ? 'Submitted ✓' : 'Submit for Catalog Review'}
               </button>
             </div>
-            {submitStatus === 'added' && (
+            {routineAdded && (
               <p className="text-xs" style={{ color: 'var(--moss)' }}>Added to your routine.</p>
             )}
             <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
-              Since this came from a photo rather than a barcode, it won't automatically join the shared
-              product database — submitting sends it for review first.
+              {barcode
+                ? `Submitting sends this to us for review. Once it's approved, scanning ${barcode} will show this product for everyone.`
+                : "Since this came from a photo rather than a barcode, it won't automatically join the shared product database — submitting sends it for review first."}
             </p>
           </div>
         </div>

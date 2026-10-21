@@ -1,0 +1,22 @@
+{
+  "status": 200,
+  "data": {
+    "files": [
+      {
+        "content_type": "image/jpeg",
+        "file_name": "selfie.jpeg",
+        "file_id": "phn1ABVzTpg8AZUBcnWUiIPIiuHHeYc2OqZ2jxz0UVqpqupmNZ5FN4+BIkGveheo",
+        "requests": [
+          {
+            "method": "PUT",
+            "url": "https://yce-us.s3-accelerate.amazonaws.com/ttl30/511670480017558020/122280004273/v2/aeMNNB0KmUIP8rnQ996tC5Q/4f4f3e07-e6a3-49cd-bdc0-36255f1f57fa.jpeg?<redacted>",
+            "headers": {
+              "Content-Length": "721894",
+              "Content-Type": "image/jpeg"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

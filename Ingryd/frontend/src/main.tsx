@@ -13,9 +13,16 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 )
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // installability degrades gracefully if this fails
+  if (import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {
+        // installability degrades gracefully if this fails
+      })
     })
-  })
+  } else {
+    // Local dev: a registered worker serves stale modules and hides your edits.
+    // Remove any left over from earlier runs and clear its caches.
+    navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister()))
+    if ('caches' in window) caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)))
+  }
 }

@@ -13,6 +13,8 @@ export default {
         petal:   '#E2596F',
         moss:    '#6F8F4C',
         chalk:   '#D9D2BE',
+        danger:  'var(--danger)',
+        warn:    'var(--warn)',
         surface: { dark: '#1D1F16', light: '#FFFFFF' },
         rim:     { dark: '#33352A', light: 'rgba(36,31,23,0.12)' },
       },

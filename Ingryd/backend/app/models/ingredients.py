@@ -9,6 +9,7 @@ class IngredientAnalyzeRequest(BaseModel):
     skin_type: str | None = None
     concerns: list[str] = []
     sensitivities: list[str] = []
+    concern_scores: dict[str, int] = {}
 
 
 class IngredientAnalyzeResponse(BaseModel):

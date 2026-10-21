@@ -25,7 +25,7 @@ export function ScoreGauge({ score, grade, fitScore, fitGrade }: Props) {
           <circle
             cx="60" cy="60" r={radius}
             fill="none"
-            stroke={config.ring}
+            style={{ stroke: config.ring }}
             strokeWidth="6"
             strokeLinecap="round"
             strokeDasharray={circumference}
