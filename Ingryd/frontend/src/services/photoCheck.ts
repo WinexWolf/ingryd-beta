@@ -25,6 +25,8 @@ export interface PhotoCheck {
   overridable: boolean      // blocked only by 'nofaces'
   /** 0 = nose at the left jaw edge, 0.5 = facing the camera, 1 = nose at the right jaw edge (image coordinates). */
   yaw?: number
+  /** Face box as fractions of the photo (0-1). Used to crop the photo tightly before analysis. */
+  box?: { x: number; y: number; w: number; h: number }
   stats?: { facePct: number; brightness: number; sharpness: number } // for tuning/diagnostics
 }
 
@@ -126,6 +128,7 @@ export async function checkPhoto(src: Source, opts: CheckOptions = {}): Promise<
   const issues: PhotoIssue[] = []
   let stats: PhotoCheck['stats']
   let yaw: number | undefined
+  let box: PhotoCheck['box']
 
   if (faces.length === 0) {
     issues.push({ code: 'no-face', severity: 'nofaces', message: "We couldn't find a face in this photo. Use a sharp, well-lit, front-facing photo of your own face." })
@@ -134,6 +137,7 @@ export async function checkPhoto(src: Source, opts: CheckOptions = {}): Promise<
   } else {
     const f = faces[0]
     const share = f.width / c.width
+    box = { x: f.x / c.width, y: f.y / c.height, w: f.width / c.width, h: f.height / c.height }
     if (share < 0.15) issues.push({ code: 'too-far', severity: 'block', message: 'Your face is too small in this photo. Move closer so it fills the frame.' })
     else if (share < 0.28) issues.push({ code: 'far', severity: 'warn', message: 'Your face is fairly small in the frame — move a bit closer for a better read.' })
     const cx = (f.x + f.width / 2) / c.width, cy = (f.y + f.height / 2) / c.height
@@ -156,7 +160,7 @@ export async function checkPhoto(src: Source, opts: CheckOptions = {}): Promise<
   }
 
   const blocked = issues.some((i) => i.severity === 'block' || i.severity === 'nofaces')
-  return { checked: true, faces: faces.length, issues, blocked, yaw, stats, overridable: blocked && issues.every((i) => i.severity !== 'block') }
+  return { checked: true, faces: faces.length, issues, blocked, yaw, stats, box, overridable: blocked && issues.every((i) => i.severity !== 'block') }
 }
 
 /** Pose rules. `turn` = how far the nose is from center (0 = straight on). Thresholds are deliberately
@@ -174,11 +178,8 @@ function addPoseIssues(issues: PhotoIssue[], view: View, yaw: number, mirrored?:
   const t = Math.abs(turn)
   if (t < TURN_MIN) { issues.push({ code: 'turn-more', severity: 'warn', message: `Turn your head a little more to your ${view} — just a quarter turn, about 20°.` }); return }
   if (t > TURN_MAX) { issues.push({ code: 'turn-less', severity: 'warn', message: 'That is too far round. Turn back a little — the analysis needs most of your face to stay visible.' }); return }
-  // Direction can only be judged on a mirrored selfie frame: there, turning to your left moves the nose to the image's left.
-  if (mirrored) {
-    const wantLeft = view === 'left'
-    if ((turn < 0) !== wantLeft) issues.push({ code: 'wrong-way', severity: 'warn', message: `That's your ${wantLeft ? 'right' : 'left'} side. Turn your head the other way for this photo.` })
-  }
+  // Which way the head turned is deliberately not enforced: mirrored previews make left/right easy to mix up,
+  // and the analysis only needs a slight turn to either side.
 }
 
 /** Loads a data-URL/blob photo into an <img> so it can be checked. */
@@ -189,4 +190,27 @@ export function imageFromSrc(src: string): Promise<HTMLImageElement> {
     img.onerror = reject
     img.src = src
   })
+}
+
+/** YouCam needs the face to fill most of the photo width (over 60%), but a selfie taken at arm's length has the
+ *  face at 35-50%. Crop to the face with a little margin (3:4 portrait) so the engine gets what it needs.
+ *  Returns the original photo if there is nothing useful to crop or the browser can't decode it. */
+export async function cropToFace(src: string, box: NonNullable<PhotoCheck['box']>, faceShare = 0.72): Promise<string> {
+  try {
+    const img = await imageFromSrc(src)
+    const W = img.naturalWidth, H = img.naturalHeight
+    const cx = (box.x + box.w / 2) * W, cy = (box.y + box.h / 2) * H
+    const cropW = Math.min((box.w * W) / faceShare, W, (H * 3) / 4)
+    if (cropW >= W * 0.93) return src            // already tight enough
+    const cropH = (cropW * 4) / 3
+    const x0 = Math.max(0, Math.min(W - cropW, cx - cropW / 2))
+    const y0 = Math.max(0, Math.min(H - cropH, cy - cropH / 2))
+    const outW = Math.round(Math.min(1280, Math.max(560, cropW)))   // YouCam needs >= 480px on the short side
+    const c = document.createElement('canvas')
+    c.width = outW; c.height = Math.round((outW * 4) / 3)
+    c.getContext('2d')!.drawImage(img, x0, y0, cropW, cropH, 0, 0, c.width, c.height)
+    return c.toDataURL('image/jpeg', 0.88)
+  } catch {
+    return src
+  }
 }

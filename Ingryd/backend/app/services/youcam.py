@@ -104,6 +104,25 @@ def parse_result(payload: dict) -> YouCamAnalysis:
     )
 
 
+_PHOTO_PROBLEMS = {
+    "error_src_face_too_small": "Your face is too small in the photo. Move closer so it fills most of the frame.",
+    "error_src_face_out_of_bound": "Part of your face is outside the photo. Keep your whole face in the frame.",
+    "error_lighting_dark": "The photo is too dark. Face a window or turn on a light.",
+    "error_below_min_image_size": "The photo is too small. Use a higher-resolution photo.",
+    "error_exceed_max_image_size": "The photo is too large. Try a smaller one.",
+}
+_GENERIC_PHOTO_PROBLEM = "Skin analysis failed — try a clearer photo, facing the camera"
+
+
+def _photo_problem(data: dict) -> str:
+    """A friendly reason from YouCam's error code, if it gave one we know."""
+    text = str(data)
+    for code, msg in _PHOTO_PROBLEMS.items():
+        if code in text:
+            return msg
+    return _GENERIC_PHOTO_PROBLEM
+
+
 def _check(resp: httpx.Response, step: str) -> dict:
     if resp.status_code == 401 or resp.status_code == 403:
         raise YouCamError(f"{step}: skin analysis service rejected our credentials")
@@ -155,12 +174,13 @@ async def analyze_image(image_bytes: bytes, content_type: str = "image/jpeg") ->
             if resp.status_code == 400 and requested_actions() != requested_actions(False):
                 # Probably one of the extra indicator names isn't accepted: retry with the proven set.
                 log.warning("YouCam rejected extended actions (%s); retrying with core set", resp.text[:200])
-                _disable_extras()
+                _disable_extras()  # an outright rejection of the names is a real answer, unlike a photo problem
                 resp = await create(requested_actions(False))
             task = _check(resp, "create task")
             task_id = task["data"]["task_id"]
 
             extras_on = requested_actions() != requested_actions(False)
+            retried_core = False
             delay, start = 1.0, time.monotonic()
             while time.monotonic() - start < POLL_TIMEOUT_S:
                 await asyncio.sleep(delay)
@@ -170,18 +190,25 @@ async def analyze_image(image_bytes: bytes, content_type: str = "image/jpeg") ->
                 ), "poll")
                 status = res.get("data", {}).get("task_status")
                 if status == "success":
+                    if retried_core:
+                        log.warning("YouCam succeeded with core set after the extended set errored: disabling extras")
+                        _disable_extras()
                     return parse_result(res)
+                if status == "error":
+                    data = res.get("data", {})
+                    log.warning("YouCam task error detail: %s", str(data)[:600])
                 if status == "error" and extras_on:
                     # The engine failed with the extended set: retry once with the proven set (failed tasks cost no units).
+                    # Only if that succeeds do we blame the extras; if it fails too, the photo is the problem.
                     log.warning("YouCam task errored with extended actions; retrying with core set")
-                    _disable_extras()
                     extras_on = False
+                    retried_core = True
                     task = _check(await create(requested_actions(False)), "create task")
                     task_id = task["data"]["task_id"]
                     delay, start = 1.0, time.monotonic()
                     continue
                 if status == "error":
-                    raise YouCamError("Skin analysis failed — try a clearer photo, facing the camera", user_fixable=True)
+                    raise YouCamError(_photo_problem(res.get("data", {})), user_fixable=True)
             raise YouCamError("Skin analysis timed out", retryable=True)
         except (KeyError, IndexError, TypeError):
             raise YouCamError("Unexpected response from skin analysis service")

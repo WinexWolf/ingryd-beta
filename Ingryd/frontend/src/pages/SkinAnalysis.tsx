@@ -12,7 +12,7 @@ import { FocusAreas } from '../components/skin/FocusAreas'
 import { ConcernGrid } from '../components/skin/ConcernGrid'
 import { NextSteps } from '../components/skin/NextSteps'
 import { PicksForYou } from '../components/recommend/PicksForYou'
-import { checkPhoto, imageFromSrc, loadDetector, SKIPPED, type View } from '../services/photoCheck'
+import { checkPhoto, cropToFace, imageFromSrc, loadDetector, SKIPPED, type View } from '../services/photoCheck'
 import { GuidedCapture } from '../components/skin/GuidedCapture'
 import { PhotoSlots, VIEWS, isBlocking, type Check } from '../components/skin/PhotoSlots'
 
@@ -88,7 +88,8 @@ export function SkinAnalysis() {
   const [consent, setConsent] = useState(readConsent)
   const overlayRef = useRef<HTMLDivElement>(null)
   const fileInputs = useRef<Partial<Record<View, HTMLInputElement | null>>>({})
-  const imageData = photos.front ?? null   // the overlay is drawn on the front photo
+  const [sent, setSent] = useState<Partial<Record<View, string>>>({})  // the face-cropped photos actually analyzed
+  const imageData = sent.front ?? photos.front ?? null   // the overlay is drawn on the photo that was analyzed
 
   useEffect(() => {
     let cancelled = false
@@ -132,7 +133,7 @@ export function SkinAnalysis() {
     setError(null)
     try {
       setProfile(await analyzeSample())
-      setPhotos({}); setChecks({})
+      setPhotos({}); setChecks({}); setSent({})
       setSelected(null)
       setPageState('result') // deliberately not saved to history: it isn't the user's skin
     } catch (err: unknown) {
@@ -152,7 +153,14 @@ export function SkinAnalysis() {
     setPageState('loading')
     setError(null)
     try {
-      const result = await analyzeSkin({ front: photos.front, left: photos.left, right: photos.right })
+      // Crop each photo to the face first: YouCam rejects photos where the face is under ~60% of the width.
+      const prepared: Partial<Record<View, string>> = {}
+      for (const v of VIEWS) {
+        const p = photos[v], c = checks[v]
+        if (p) prepared[v] = typeof c === 'object' && c?.box ? await cropToFace(p, c.box) : p
+      }
+      setSent(prepared)
+      const result = await analyzeSkin({ front: prepared.front!, left: prepared.left, right: prepared.right })
       setProfile(result)
       // Remember what was on the shelf at scan time so later scans can be tied to routine changes.
       const routine = await getRoutine()
@@ -170,7 +178,7 @@ export function SkinAnalysis() {
 
   const reset = () => {
     setCamera(null)
-    setPhotos({}); setChecks({}); setOverrides({})
+    setPhotos({}); setChecks({}); setOverrides({}); setSent({})
     setProfile(null)
     setSelected(null)
     setError(null)
