@@ -87,6 +87,21 @@ function lumaStats(c: HTMLCanvasElement, box?: { x: number; y: number; w: number
   return { mean, sharp }
 }
 
+/** Share of pixels that are blown out (near-white) in a region: glare, flash or a window reflecting off the skin. */
+function glareShare(c: HTMLCanvasElement, box: { x: number; y: number; w: number; h: number }): number {
+  const x = Math.max(0, Math.round(box.x)), y = Math.max(0, Math.round(box.y))
+  const w = Math.max(3, Math.min(c.width - x, Math.round(box.w))), h = Math.max(3, Math.min(c.height - y, Math.round(box.h)))
+  const d = c.getContext('2d')!.getImageData(x, y, w, h).data
+  let hot = 0
+  for (let i = 0; i < w * h; i++) if (0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2] > 245) hot++
+  return hot / (w * h)
+}
+
+type Pt = { x: number; y: number }
+const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y)
+/** Eye aspect ratio from the 6 landmarks of one eye: ~0.25-0.35 open, under ~0.15 closed. */
+const eyeRatio = (p: Pt[], i: number) => (dist(p[i + 1], p[i + 5]) + dist(p[i + 2], p[i + 4])) / (2 * Math.max(1, dist(p[i], p[i + 3])))
+
 type Det = Awaited<ReturnType<ReturnType<FaceApi['detectAllFaces']>['withFaceLandmarks']>>[number]
 
 /** The tiny detector is very sensitive to its input size: the same clear face can score 0.94 at one size and
@@ -160,6 +175,21 @@ export async function checkPhoto(src: Source, opts: CheckOptions = {}): Promise<
     const { mean, sharp: rawSharp } = lumaStats(c, { x: f.x, y: f.y, w: f.width, h: f.height })
     const sharp = rawSharp / Math.max(0.25, (mean / 128) ** 2) // darker photos have lower raw contrast; compare fairly
     stats = { facePct: Math.round(share * 100), brightness: Math.round(mean), sharpness: Math.round(sharp) }
+    // Even light: a window on one side lights half the face and shadows the other.
+    const left = lumaStats(c, { x: f.x, y: f.y, w: f.width / 2, h: f.height }).mean
+    const right = lumaStats(c, { x: f.x + f.width / 2, y: f.y, w: f.width / 2, h: f.height }).mean
+    if (Math.abs(left - right) / Math.max(left, right, 1) > 0.28 && Math.max(left, right) > 60) {
+      issues.push({ code: 'uneven', severity: 'warn', message: `One side of your face is brighter. Turn to face the light so it falls evenly.` })
+    }
+    if (glareShare(c, { x: f.x, y: f.y, w: f.width, h: f.height }) > 0.05) {
+      issues.push({ code: 'glare', severity: 'warn', message: 'There is glare on your face. Avoid flash and bright windows behind or beside you.' })
+    }
+    // Relaxed face: mouth closed, eyes open (YouCam asks for a neutral expression).
+    if (view === 'front' && pts.length >= 68) {
+      const mouth = dist(pts[62], pts[66]) / Math.max(1, f.height)
+      if (mouth > 0.05) issues.push({ code: 'mouth-open', severity: 'warn', message: 'Close your mouth and relax your face.' })
+      if (eyeRatio(pts, 36) < 0.13 && eyeRatio(pts, 42) < 0.13) issues.push({ code: 'eyes-closed', severity: 'warn', message: 'Open your eyes and look at the camera.' })
+    }
     if (mean < 55) issues.push({ code: 'dark', severity: 'warn', message: 'Your face looks dark. Face a window or turn on a light, then retake.' })
     else if (mean > 215) issues.push({ code: 'bright', severity: 'warn', message: 'Your face looks washed out. Avoid direct flash or harsh light.' })
     if (sharp < 8) issues.push({ code: 'blurry', severity: 'warn', message: 'This photo looks blurry. Hold still and wipe the lens, then retake.' })

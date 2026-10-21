@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
-import { checkPhoto, loadDetector, type View } from '../../services/photoCheck'
+import { checkPhoto, loadDetector, type PhotoIssue, type View } from '../../services/photoCheck'
 
 const ORDER: View[] = ['front']
 const LABEL: Record<View, string> = { front: 'Front', left: 'Left side', right: 'Right side' }
@@ -9,6 +9,14 @@ const INSTRUCTION: Record<View, string> = {
   left: 'Turn your head slightly to your left — just a quarter turn',
   right: 'Now turn slightly to your right — just a quarter turn',
 }
+/** What the live checklist shows, and which detected problems fail each item. */
+const CHECKLIST: { label: string; codes: string[] }[] = [
+  { label: 'Face in frame', codes: ['no-face', 'many-faces', 'too-far', 'far', 'cut-off', 'off-center'] },
+  { label: 'Looking straight', codes: ['not-straight', 'tilted'] },
+  { label: 'Light', codes: ['dark', 'bright', 'uneven', 'glare'] },
+  { label: 'Sharp', codes: ['blurry'] },
+  { label: 'Relaxed face', codes: ['mouth-open', 'eyes-closed'] },
+]
 const HOLD_TICKS = 4        // consecutive good frames (~1.8 s) before the photo is taken automatically
 const TICK_MS = 450
 
@@ -46,6 +54,7 @@ export function GuidedCapture({ start, single = false, onCapture, onDone, onCanc
   const [good, setGood] = useState(false)
   const [progress, setProgress] = useState(0)
   const [flash, setFlash] = useState(false)
+  const [failed, setFailed] = useState<string[] | null>(null)   // codes of current problems; null = not checked yet
   const [pausedMsg, setPausedMsg] = useState<string | null>(null)
   const [autoOn, setAutoOn] = useState(true)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -103,13 +112,13 @@ export function GuidedCapture({ start, single = false, onCapture, onDone, onCanc
           const r = await checkPhoto(frameToCanvas(v, 640), { view, mirrored: true, fast: true })
           if (stop || lock.current) return
           if (!r.checked) {
-            setHint(INSTRUCTION[view]); setGood(false); streak = 0
+            setHint(INSTRUCTION[view]); setGood(false); streak = 0; setFailed(null)
           } else if (r.issues.length === 0) {
-            streak++
+            streak++; setFailed([])
             setGood(true); setHint('Hold still…'); setProgress(Math.min(1, streak / HOLD_TICKS))
             if (autoOn && streak >= HOLD_TICKS) { take(view, isLast); return }
           } else {
-            streak = 0; setGood(false); setProgress(0); setHint(r.issues[0].message)
+            streak = 0; setGood(false); setProgress(0); setHint(r.issues[0].message); setFailed(r.issues.map((i: PhotoIssue) => i.code))
           }
         } catch { /* hint only */ }
       }
@@ -149,6 +158,16 @@ export function GuidedCapture({ start, single = false, onCapture, onDone, onCanc
              style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.75))' }}>
           <p className="text-[10px] tracking-widest uppercase opacity-80">Step {idx + 1} of {steps.length} · {LABEL[view]}</p>
           <p role="status" className="text-sm mt-1 min-h-[2.5rem]">{pausedMsg ?? (cameraError ? '' : hint)}</p>
+          <ul className="flex flex-wrap justify-center gap-x-3 gap-y-0.5 mt-2 text-[10px]" aria-label="Photo checklist">
+            {CHECKLIST.map((item) => {
+              const state = failed === null ? 'wait' : item.codes.some((c) => failed.includes(c)) ? 'bad' : 'ok'
+              return (
+                <li key={item.label} data-state={state} style={{ color: state === 'ok' ? '#8FD18A' : state === 'bad' ? '#F5B14C' : 'rgba(255,255,255,0.6)' }}>
+                  {state === 'ok' ? '✓' : state === 'bad' ? '!' : '·'} {item.label}
+                </li>
+              )
+            })}
+          </ul>
           <div className="h-1 mt-1 mx-auto max-w-[8rem] rounded-full bg-white/25 overflow-hidden"><div className="h-full" style={{ width: `${progress * 100}%`, backgroundColor: '#8FD18A', transition: 'width .3s' }} /></div>
         </div>
         {flash && <div aria-hidden className="absolute inset-0 z-20 bg-white" />}
