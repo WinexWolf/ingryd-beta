@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { Navbar } from './Navbar'
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -10,7 +11,10 @@ export function Layout({ children }: { children: ReactNode }) {
       </main>
       <footer style={{ borderTop: '1px solid var(--rim)' }}>
         <div className="max-w-7xl mx-auto px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <span className="font-display text-lg shimmer-text">ingryd</span>
+          <span className="flex items-center gap-4">
+            <span className="font-display text-lg shimmer-text">ingryd</span>
+            <Link to="/plans" className="text-xs tracking-widest uppercase underline hover:opacity-80" style={{ color: 'var(--muted)' }}>Plans</Link>
+          </span>
           <span className="text-xs tracking-widest uppercase" style={{ color: 'var(--muted)' }}>
             Ingredient data via{' '}
             <a

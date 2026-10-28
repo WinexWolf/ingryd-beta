@@ -36,7 +36,7 @@ export function ScoreGauge({ score, grade, fitScore, fitGrade }: Props) {
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="font-display text-4xl leading-none" style={{ color: 'var(--fg)' }}>{displayScore}</span>
           <span className="text-[10px] tracking-widest uppercase mt-1" style={{ color: 'var(--muted)' }}>
-            {personalized ? 'Fit Score' : 'Score'}
+            {personalized ? 'Fit Score' : 'General score'}
           </span>
         </div>
       </div>

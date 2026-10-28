@@ -2,6 +2,7 @@ import { ScoreGauge } from '../ui/ScoreGauge'
 import { BuyLinks } from '../ui/BuyLinks'
 import { IngredientBadge } from '../ui/IngredientBadge'
 import { BetterForYou } from '../recommend/BetterForYou'
+import { PersonalizeNudge, HowWeScore } from '../ui/ScoreExplainer'
 import type { ProductResult, GradeKey } from '../../types'
 
 interface Props {
@@ -121,6 +122,8 @@ export function ScanResult({ product, onReset }: Props) {
         </div>
       )}
 
+      {score && typeof score.fit_score !== 'number' && <PersonalizeNudge />}
+
       {/* Personalized notes */}
       {score && score.personal_notes.length > 0 && (
         <div className="p-6" style={{ border: '1px solid var(--secondary)', backgroundColor: 'rgba(226,89,111,0.05)' }}>
@@ -235,6 +238,8 @@ export function ScanResult({ product, onReset }: Props) {
           </p>
         </div>
       )}
+
+      {score && <HowWeScore />}
 
       <div className="flex justify-start pt-2">
         <button onClick={onReset} className="btn-outline">← Scan Another Product</button>

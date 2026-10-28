@@ -12,6 +12,7 @@ import { Auth } from './pages/Auth'
 import { ResetPassword } from './pages/ResetPassword'
 import { ScanIngredients } from './pages/ScanIngredients'
 import { AdminReview } from './pages/AdminReview'
+import { Plans } from './pages/Plans'
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/skin-analysis" element={<RequireAuth><SkinAnalysis /></RequireAuth>} />
             <Route path="/search" element={<RequireAuth><ProductSearch /></RequireAuth>} />
             <Route path="/routine" element={<RequireAuth><Routine /></RequireAuth>} />
+            <Route path="/plans" element={<Plans />} />
             <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
             <Route path="/admin/review" element={<RequireAuth><AdminReview /></RequireAuth>} />
           </Routes>
