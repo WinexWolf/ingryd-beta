@@ -5,6 +5,7 @@ import type { SortMode } from '../services/api'
 import { addScanToHistory, addRoutineItem } from '../services/history'
 import { SearchBox } from '../components/ui/SearchBox'
 import { ScanResult } from '../components/scanner/ScanResult'
+import { PersonalizeNudge } from '../components/ui/ScoreExplainer'
 import type { ProductResult, GradeKey } from '../types'
 import { GRADE_CONFIG } from '../types'
 
@@ -204,6 +205,8 @@ export function ProductSearch() {
             </div>
           </div>
 
+          {results.some((r) => r.score) && !results.some((r) => typeof r.score?.fit_score === 'number') && <PersonalizeNudge compact />}
+
           {results.length === 0 && (
             <div className="p-10 text-center" style={{ border: '1px solid var(--rim)' }}>
               <p className="text-sm" style={{ color: 'var(--muted)' }}>
@@ -246,7 +249,7 @@ export function ProductSearch() {
                   {config ? (
                     <div className="flex flex-col items-end gap-1 min-w-0">
                       <span className={`text-[11px] sm:text-xs font-semibold tracking-wider sm:tracking-widest uppercase px-3 py-1 border rounded-full whitespace-nowrap ${config.color} ${config.bg}`}>
-                        {displayScore} · {config.label}
+                        {typeof product.score?.fit_score === 'number' ? 'Fit' : 'General'} {displayScore} · {config.label}
                       </span>
                       {(product.score?.prohibited.length ?? 0) > 0 && (
                         <span className="text-[10px] font-semibold" style={{ color: 'var(--danger)' }}>
