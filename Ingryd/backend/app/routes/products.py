@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from app.services.catalog import lookup_barcode_with_fallback, catalog_search_products, catalog_browse_products, catalog_suggest
+from app.services.catalog import lookup_barcode_with_fallback, catalog_search_products, catalog_browse_products, catalog_suggest, catalog_lookup_by_name
 from app.models.product import ProductResult, ProductSearchResponse, SkinProfile
 from app.services.concerns import parse_concern_scores
 from app.models.product import AlternativesRequest, AlternativesResponse, RecommendResponse
@@ -39,6 +39,23 @@ async def get_product_by_barcode(
         raise HTTPException(status_code=400, detail="That doesn't look like a full barcode. Barcodes have 8, 12, 13 or 14 digits — check for a missing digit.")
     profile = _build_profile(skin_type, concerns, sensitivities, concern_scores)
     result = await lookup_barcode_with_fallback(barcode, profile)
+    return result
+
+
+@router.get("/by-name", response_model=ProductResult)
+async def get_product_by_name(
+    name: str = Query(..., min_length=1, max_length=200),
+    brand: str | None = Query(None, max_length=120),
+    skin_type: str | None = Query(None),
+    concerns: str | None = Query(None, description="Comma-separated concerns"),
+    sensitivities: str | None = Query(None, description="Comma-separated sensitivities"),
+    concern_scores: str | None = Query(None, description="Latest scan, e.g. acne:77,pore:73"),
+):
+    """A catalog product by its exact name (and brand), for products that have no barcode."""
+    profile = _build_profile(skin_type, concerns, sensitivities, concern_scores)
+    result = await catalog_lookup_by_name(name, brand, profile)
+    if result is None:
+        raise HTTPException(status_code=404, detail="We couldn't find that product in the catalog.")
     return result
 
 

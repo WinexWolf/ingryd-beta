@@ -21,6 +21,7 @@ export function Layout({ children }: { children: ReactNode }) {
             >
               Open Beauty Facts
             </a>
+            {' '}and community contributions
           </span>
         </div>
       </footer>

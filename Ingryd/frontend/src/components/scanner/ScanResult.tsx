@@ -1,4 +1,5 @@
 import { ScoreGauge } from '../ui/ScoreGauge'
+import { BuyLinks } from '../ui/BuyLinks'
 import { IngredientBadge } from '../ui/IngredientBadge'
 import { BetterForYou } from '../recommend/BetterForYou'
 import type { ProductResult, GradeKey } from '../../types'
@@ -66,6 +67,7 @@ export function ScanResult({ product, onReset }: Props) {
           <h2 className="font-display text-3xl leading-snug mb-3" style={{ color: 'var(--fg)' }}>
             {product.name ?? 'Unnamed Product'}
           </h2>
+          <div className="mb-3"><BuyLinks brand={product.brand} name={product.name} /></div>
           {product.labels && (
             <div className="flex flex-wrap gap-2 mt-2">
               {product.labels.split(',').slice(0, 5).map((label) => (

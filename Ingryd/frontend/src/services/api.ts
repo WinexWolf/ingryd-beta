@@ -30,6 +30,13 @@ export async function fetchProductByBarcode(barcode: string): Promise<ProductRes
   return handle<ProductResult>(res)
 }
 
+/** Catalog products can lack a barcode, so a dropdown pick without one is looked up by its exact name (and brand). */
+export async function fetchProductByName(name: string, brand?: string | null): Promise<ProductResult> {
+  const profileQs = profileToQueryParams(await getProfile())
+  const res = await fetch(`${BASE}/products/by-name?name=${encodeURIComponent(name)}${brand ? `&brand=${encodeURIComponent(brand)}` : ''}${profileQs}`)
+  return handle<ProductResult>(res)
+}
+
 export type SortMode = 'name' | 'score'
 
 export async function searchProducts(query: string, page = 1, pageSize = 12, sort: SortMode = 'name'): Promise<ProductSearchResponse> {

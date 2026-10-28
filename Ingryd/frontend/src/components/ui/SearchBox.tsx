@@ -52,9 +52,12 @@ export function SearchBox({ value, onChange, onPick, placeholder }: Props) {
   }, [])
 
   const pick = (s: ProductSuggestion) => {
-    justPicked.current = true
+    const label = [s.brand, s.name].filter(Boolean).join(' ')
+    // Skip the next suggestion lookup only if the text will actually change (otherwise the effect never runs).
+    justPicked.current = label.trim() !== value.trim()
     setOpen(false)
     setItems([])
+    onChange(label)   // show what was chosen in the box
     onPick(s)
   }
 
@@ -104,7 +107,7 @@ export function SearchBox({ value, onChange, onPick, placeholder }: Props) {
               style={{ backgroundColor: i === active ? 'var(--bg)' : 'transparent', borderBottom: '1px solid var(--rim)' }}
             >
               {s.brand && <p className="text-[9px] tracking-widest uppercase truncate" style={{ color: 'var(--secondary)' }}>{s.brand}</p>}
-              <p className="text-sm truncate" style={{ color: 'var(--fg)' }}><Highlight text={s.name} q={q} /></p>
+              <p className="text-sm break-words" style={{ color: 'var(--fg)' }}><Highlight text={s.name} q={q} /></p>
             </li>
           ))}
         </ul>

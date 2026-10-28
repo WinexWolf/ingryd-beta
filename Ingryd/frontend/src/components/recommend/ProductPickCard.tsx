@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Sun, Moon, Check } from 'lucide-react'
 import { addRoutineItem } from '../../services/history'
+import { BuyLinks } from '../ui/BuyLinks'
 import type { RecommendedProduct, RoutineProductInput } from '../../types'
 
 const GRADE_COLOR: Record<string, string> = {
@@ -59,6 +60,8 @@ export function ProductPickCard({ pick, onAdded }: { pick: RecommendedProduct; o
       {pick.cautions.map((c) => (
         <p key={c} className="text-xs leading-relaxed" style={{ color: 'var(--warn)' }}>− {c}</p>
       ))}
+
+      <BuyLinks brand={pick.brand} name={pick.name} />
 
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={() => add('am')} disabled={busy || !!added} className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50">

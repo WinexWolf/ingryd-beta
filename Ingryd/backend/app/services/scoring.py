@@ -1,3 +1,4 @@
+import math
 from app.models.product import IngredientFlag, ProductScore, SkinProfile, PersonalNote
 from app.services.allergens import match_allergen, match_prohibited
 from app.services.concerns import APP_CONCERN_KEYS, flagged, suffix, weight
@@ -301,6 +302,15 @@ def _any_match(ingredient_norm: str, keywords: list[str]) -> str | None:
     return None
 
 
+def _soft_cap(raw: float) -> int:
+    """Keep 100 rare. A hard cap at 100 turned every good match into a tie at 100 (a few matching ingredients
+    plus a severe scan pushed raw scores well past it). Above 80 the score now rises with diminishing returns,
+    so strong matches stay distinguishable and an ingredient list can't claim to be perfect."""
+    if raw <= 80:
+        return max(0, int(round(raw)))
+    return min(100, int(round(80 + 20 * math.tanh((raw - 80) / 40))))
+
+
 def _apply_personalization(result: ProductScore, ingredients: list[str], profile: SkinProfile) -> None:
     """Fit Score. Every adjustment is scaled by how severe the matching concern is
     on the user's latest scan (profile.concern_scores, YouCam ui_score where higher
@@ -388,7 +398,7 @@ def _apply_personalization(result: ProductScore, ingredients: list[str], profile
                     seen_adjustments.add(key)
                     add(ing, f"You flagged a sensitivity to {sensitivity}", -12, 1.0)
 
-    fit_score = max(0, min(100, result.score + adjustment))
+    fit_score = _soft_cap(result.score + adjustment)
 
     result.fit_score = fit_score
     result.fit_grade = _grade_for(fit_score)

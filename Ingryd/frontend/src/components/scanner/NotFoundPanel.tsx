@@ -70,7 +70,7 @@ export function NotFoundPanel({ product, onReset, onPickCandidate }: Props) {
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--secondary)' }}>{c.brand ?? 'Unknown'}</p>
-                  <p className="text-sm truncate" style={{ color: 'var(--fg)' }}>{c.name ?? 'Unnamed product'}</p>
+                  <p className="text-sm break-words" style={{ color: 'var(--fg)' }}>{c.name ?? 'Unnamed product'}</p>
                 </div>
                 <span className="text-xs flex-shrink-0" style={{ color: 'var(--primary)' }}>Use this →</span>
               </button>
