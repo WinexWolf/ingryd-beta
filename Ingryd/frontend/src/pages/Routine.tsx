@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Sun, Moon, X, Search, ScanBarcode } from 'lucide-react'
 import { SearchBox } from '../components/ui/SearchBox'
-import { fetchProductByBarcode, searchProducts, checkRoutine } from '../services/api'
+import { fetchProductByBarcode, fetchProductByName, searchProducts, checkRoutine } from '../services/api'
 import { getRoutine, addRoutineItem, removeRoutineItem } from '../services/history'
 import { BottleIcon } from '../components/routine/BottleIcon'
 import { RoutineFitPanel } from '../components/routine/RoutineFitPanel'
@@ -58,6 +58,7 @@ export function Routine() {
   const [addSlot, setAddSlot] = useState<'am' | 'pm'>('am')
   const [addMode, setAddMode] = useState<'barcode' | 'search'>('search')
   const [inputValue, setInputValue] = useState('')
+  const [picked, setPicked] = useState<{ barcode: string; name: string; brand?: string | null } | null>(null)  // a suggestion chosen from the dropdown, waiting for 'Add'
   const [busy, setBusy] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
   const [searchResults, setSearchResults] = useState<ProductResult[]>([])
@@ -99,8 +100,17 @@ export function Routine() {
     }
   }
 
+  const addPicked = async () => {
+    if (!picked) return
+    setBusy(true); setAddError(null)
+    try { await pickSearchResult(picked.barcode ? await fetchProductByBarcode(picked.barcode) : await fetchProductByName(picked.name, picked.brand)) }
+    catch (err: unknown) { setAddError(err instanceof Error ? err.message : 'Could not add that product') }
+    finally { setBusy(false) }
+  }
+
   const handleSearchSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (picked) return addPicked()
     if (!inputValue.trim()) return
     setBusy(true)
     setAddError(null)
@@ -123,6 +133,7 @@ export function Routine() {
     await addOne(p.name ?? `Product ${p.barcode}`, p.brand, p.ingredients_parsed)
     setSearchResults([])
     setInputValue('')
+    setPicked(null)
   }
 
   const removeProduct = async (id: string) => {
@@ -200,7 +211,7 @@ export function Routine() {
                   type="button"
                   role="tab"
                   aria-selected={on}
-                  onClick={() => { setAddMode(mode); setInputValue(''); setSearchResults([]); setAddError(null) }}
+                  onClick={() => { setAddMode(mode); setInputValue(''); setPicked(null); setSearchResults([]); setAddError(null) }}
                   className="flex items-center justify-center gap-2 text-sm py-2.5 -mb-px"
                   style={{
                     color: on ? 'var(--fg)' : 'var(--muted)',
@@ -215,7 +226,7 @@ export function Routine() {
           </div>
           <p className="text-xs" style={{ color: 'var(--muted)' }}>
             {addMode === 'search'
-              ? 'Start typing a brand or product name, then pick it from the list.'
+              ? picked ? 'Product selected. Choose morning or evening above, then add it.' : 'Start typing a brand or product name, then pick it from the list.'
               : 'Type the number printed under the barcode (8–14 digits).'}
           </p>
         </div>
@@ -224,14 +235,9 @@ export function Routine() {
           {addMode === 'search' ? (
             <SearchBox
               value={inputValue}
-              onChange={setInputValue}
+              onChange={(v) => { setInputValue(v); setPicked(null); setSearchResults([]) }}
               placeholder="e.g. CeraVe Foaming Cleanser"
-              onPick={async (sug) => {
-                setBusy(true); setAddError(null)
-                try { await pickSearchResult(await fetchProductByBarcode(sug.barcode)) }
-                catch (err: unknown) { setAddError(err instanceof Error ? err.message : 'Could not add that product') }
-                finally { setBusy(false) }
-              }}
+              onPick={(sug) => { setPicked({ barcode: sug.barcode, name: sug.name, brand: sug.brand }); setAddError(null) }}
             />
           ) : (
             <input
@@ -244,7 +250,7 @@ export function Routine() {
             />
           )}
           <button type="submit" disabled={!inputValue.trim() || busy} className="btn-primary whitespace-nowrap">
-            {busy ? '…' : addMode === 'barcode' ? `Add to ${addSlot === 'am' ? 'morning' : 'evening'}` : 'Search'}
+            {busy ? '…' : addMode === 'barcode' || picked ? `Add to ${addSlot === 'am' ? 'morning' : 'evening'}` : 'Search'}
           </button>
         </form>
         {addError && <p className="text-xs text-danger">{addError}</p>}
@@ -266,7 +272,7 @@ export function Routine() {
                 )}
                 <div className="min-w-0">
                   <p className="text-[9px] tracking-widest uppercase" style={{ color: 'var(--secondary)' }}>{p.brand ?? 'Unknown'}</p>
-                  <p className="text-sm truncate" style={{ color: 'var(--fg)' }}>{p.name ?? 'Unnamed product'}</p>
+                  <p className="text-sm break-words" style={{ color: 'var(--fg)' }}>{p.name ?? 'Unnamed product'}</p>
                 </div>
               </button>
             ))}

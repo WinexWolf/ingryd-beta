@@ -8,7 +8,7 @@ type Mode = 'login' | 'signup' | 'forgot'
 
 export function Auth() {
   const navigate = useNavigate()
-  const { signIn, signUp, sendPasswordReset } = useAuth()
+  const { signIn, signUp, signInWithGoogle, sendPasswordReset } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -59,6 +59,13 @@ export function Auth() {
     navigate('/')
   }
 
+  const handleGoogle = async () => {
+    setError(null)
+    setBusy(true)
+    const r = await signInWithGoogle()
+    if (r.error) { setBusy(false); setError(r.error) }   // on success the browser leaves for Google
+  }
+
   const isNotice = error && (error.startsWith('Check your email'))
 
   return (
@@ -71,6 +78,15 @@ export function Auth() {
           {mode === 'login' ? 'Log In' : mode === 'signup' ? 'Sign Up' : 'Forgot Password'}
         </h1>
       </div>
+
+      {mode !== 'forgot' && (
+        <div className="flex flex-col gap-4">
+          <button type="button" onClick={handleGoogle} disabled={busy} className="btn-outline w-full">
+            Continue with Google
+          </button>
+          <p className="text-[10px] tracking-widest uppercase text-center" style={{ color: 'var(--muted)' }}>or use your email</p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {mode === 'signup' && (

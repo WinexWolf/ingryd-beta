@@ -36,7 +36,7 @@ export function PicksForYou({ scan, groups = 3, perGroup = 2, title = 'Picked fo
       <div>
         <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'var(--primary)' }}>{title}</p>
         <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
-          Ranked by Fit Score against {scan ? 'this scan' : 'your profile'}, best match first.
+          Ranked by Fit Score against {scan ? 'this scan' : 'your profile'}, best match first. Fit starts from the product's ingredient safety score, then adds points for ingredients that target your concerns and subtracts for ones that clash with your skin, scaled by how severe each concern was on your scan.
         </p>
       </div>
 

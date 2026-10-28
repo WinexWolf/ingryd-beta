@@ -483,6 +483,23 @@ def clean_query(q: str) -> str:
     return re.sub(r"[,()%*\\\"]", " ", q or "").strip()
 
 
+async def catalog_lookup_by_name(name: str, brand: str | None, profile: SkinProfile | None = None) -> ProductResult | None:
+    """Exact name (and brand) lookup. Dropdown suggestions can come from catalog rows with no barcode,
+    which can't be fetched by barcode, so they are fetched by the exact name they were suggested with."""
+    supabase = get_supabase()
+    if supabase is None or not name:
+        return None
+    try:
+        q = supabase.table("product_full").select("*").eq("product_name", name)
+        if brand:
+            q = q.eq("brand", brand)
+        rows = q.limit(1).execute().data or []
+    except Exception as e:
+        print(f"[catalog] by-name lookup failed: {e}")
+        return None
+    return _row_to_result_safe(rows[0], profile) if rows else None
+
+
 _SUGGEST_CACHE: dict[str, tuple[float, list[dict]]] = {}
 
 

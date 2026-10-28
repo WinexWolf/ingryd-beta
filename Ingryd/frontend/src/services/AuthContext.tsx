@@ -9,6 +9,7 @@ interface AuthState {
   loading: boolean
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signInWithGoogle: () => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   sendPasswordReset: (email: string) => Promise<{ error: string | null }>
   updatePassword: (newPassword: string) => Promise<{ error: string | null }>
@@ -64,6 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null }
   }
 
+  const signInWithGoogle = async () => {
+    // Redirects away to Google, then back to the app with a session (Supabase handles the exchange).
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })
+    return { error: error?.message ?? null }
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
   }
@@ -81,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user: session?.user ?? null, session, loading, signUp, signIn, signOut, sendPasswordReset, updatePassword }}>
+    <AuthContext.Provider value={{ user: session?.user ?? null, session, loading, signUp, signIn, signInWithGoogle, signOut, sendPasswordReset, updatePassword }}>
       {children}
     </AuthContext.Provider>
   )
