@@ -13,6 +13,7 @@ import { ConcernGrid } from '../components/skin/ConcernGrid'
 import { NextSteps } from '../components/skin/NextSteps'
 import { PicksForYou } from '../components/recommend/PicksForYou'
 import { checkPhoto, cropToFace, imageFromSrc, loadDetector, SKIPPED, type View } from '../services/photoCheck'
+import { UseWhatYouHave } from '../components/skin/UseWhatYouHave'
 import { UnseenAreas, unseenToConcerns, type Unseen } from '../components/skin/UnseenAreas'
 import { GuidedCapture } from '../components/skin/GuidedCapture'
 import { PhotoSlots, VIEWS, isBlocking, type Check } from '../components/skin/PhotoSlots'
@@ -402,6 +403,8 @@ export function SkinAnalysis() {
           {isScan && <PicksForYou scan={scanForUse ?? profile} title="Products for your focus areas" />}
 
           <ApplyToProfile scan={scanForUse ?? profile} />
+
+          {isScan && <UseWhatYouHave />}
 
           <NextSteps />
 
