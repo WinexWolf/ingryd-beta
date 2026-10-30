@@ -6,6 +6,7 @@ import { getRoutine, addRoutineItem, removeRoutineItem } from '../services/histo
 import { BottleIcon } from '../components/routine/BottleIcon'
 import { RoutineFitPanel } from '../components/routine/RoutineFitPanel'
 import type { RoutineProductInput, RoutineCheckResponse, ProductResult } from '../types'
+import { DailyCheckIn } from '../components/routine/DailyCheckIn'
 
 function ShelfCard({ product, index, onRemove }: { product: RoutineProductInput; index: number; onRemove: () => void }) {
   const color = index % 2 === 0 ? 'var(--primary)' : 'var(--secondary)'
@@ -163,6 +164,8 @@ export function Routine() {
         <p className="text-[10px] tracking-[0.4em] uppercase mb-2" style={{ color: 'var(--muted)' }}>Feature 04</p>
         <h1 className="font-display text-4xl sm:text-5xl" style={{ color: 'var(--fg)' }}>My Routine</h1>
       </div>
+
+      <DailyCheckIn />
 
       {/* Add product form */}
       <div className="p-5 sm:p-6 flex flex-col gap-6" style={{ border: '1px solid var(--rim)' }}>
