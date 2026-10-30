@@ -239,7 +239,7 @@ export function ProductSearch() {
                     <p className="text-[10px] tracking-widest uppercase mb-1 break-words" style={{ color: 'var(--secondary)' }}>
                       {product.brand ?? 'Unknown brand'}
                     </p>
-                    <p className="font-display text-base sm:text-lg leading-snug break-words" style={{ color: 'var(--fg)' }}>
+                    <p className="font-sans font-semibold text-base sm:text-lg leading-snug break-words" style={{ color: 'var(--fg)' }}>
                       {product.name ?? 'Unnamed product'}
                     </p>
                   </div>
