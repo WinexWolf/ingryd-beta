@@ -216,6 +216,7 @@ export function ScanIngredients() {
         <Link to="/scan" className="text-xs underline inline-block mt-3" style={{ color: 'var(--primary)' }}>← Back to barcode scan</Link>
         <p className="text-sm mt-4 leading-relaxed" style={{ color: 'var(--muted)' }}>
           Photograph the ingredients panel directly — works for products without a scannable barcode. Use the back or side of the pack, where it says “Ingredients”, not the front.
+          Bottle only shows key actives? Check the outer box, since the full list is often only printed there. Thrown the box away? Search the product online and paste the list in instead.
           Text extraction happens right on your device. You'll get a chance to fix any misreads before we analyze it.
         </p>
       </div>
@@ -241,6 +242,13 @@ export function ScanIngredients() {
               <Upload size={16} /> Upload Photo
             </button>
           </div>
+          <button
+            onClick={() => { setRawText(''); setTextError(null); setPageState('review-text') }}
+            className="text-xs underline"
+            style={{ color: 'var(--primary)' }}
+          >
+            No list on the pack? Paste ingredients instead
+          </button>
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
         </div>
       )}
@@ -311,12 +319,26 @@ export function ScanIngredients() {
               </div>
             </div>
           )}
+          {!rawText.trim() && !textError && (
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+              Tip: the full list is often only on the outer box. If you've thrown it away, search the product online, ideally on the brand's own site, and paste the list here. Photos of the bottle front won't work, since it only shows key actives.
+            </p>
+          )}
+          <a
+            href={`https://www.google.com/search?q=${encodeURIComponent(([brand, productName].filter(Boolean).join(' ') || 'skincare product') + ' full ingredients list INCI')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs underline self-start"
+            style={{ color: 'var(--primary)' }}
+          >
+            Find the ingredient list online{brand || productName ? ` for ${[brand, productName].filter(Boolean).join(' ')}` : ''} ↗
+          </a>
           <textarea
             value={rawText}
             onChange={(e) => { setRawText(e.target.value); if (textError) setTextError(null) }}
             rows={8}
             className="input font-sans"
-            placeholder="Water, Glycerin, ..."
+            placeholder="Paste or type the full list: Water, Glycerin, ..."
           />
           <div className="flex gap-3">
             <button onClick={runAnalysis} disabled={!rawText.trim()} className="btn-primary flex-1">Analyze</button>
