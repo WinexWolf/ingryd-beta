@@ -89,6 +89,45 @@ class IngredientCheck:
     reason: str | None = None
 
 
+# Where the list starts and where the label moves on to something else.
+_HEADER = re.compile(r"\b(?:ingredients?|ingr[eé]dients?|inci|composition|zutaten)\b\s*[:：.\-–—]?", re.I)
+_STOP = re.compile(
+    r"\b(?:directions?|how to use|usage|use:|warnings?|caution|precautions?|made in|manufactured|"
+    r"distributed|dist\.|best before|exp(?:iry)?|batch|lot no|net w(?:t|eight)|questions\??|"
+    r"call us|www\.|for external use|store in|keep out)\b", re.I)
+
+
+def extract_ingredient_text(raw: str) -> str:
+    """Pull just the ingredient list out of everything OCR read from a label.
+
+    A photo of the back of a pack also contains marketing claims, directions and warnings. We
+    start at the word "Ingredients" (if it is there), stop where directions or warnings begin,
+    join wrapped lines, and treat bullets or semicolons as commas when the list uses those.
+    """
+    text = (raw or "").replace("\r", "\n")
+    m = _HEADER.search(text)
+    if m:
+        text = text[m.end():]
+        stop = _STOP.search(text)
+        if stop:
+            text = text[: stop.start()]
+    text = re.sub(r"\s*\n\s*", " ", text)            # wrapped lines are one list
+    if text.count(",") < 3 and len(re.findall(r"[;•·|]", text)) >= 3:
+        text = re.sub(r"\s*[;•·|]\s*", ", ", text)    # lists that use other separators
+    text = re.sub(r"\s{2,}", " ", text)
+    return text.strip(" ,.;:")
+
+
+def has_ingredient_header(raw: str) -> bool:
+    return bool(_HEADER.search(raw or ""))
+
+
+NO_LIST_MESSAGE = (
+    "We couldn't find an ingredient list in that photo. If this is the front of the product, turn it over "
+    "and photograph the back or side panel, the part after the word “Ingredients”. Otherwise retake the "
+    "photo sharper, brighter and flatter."
+)
+
 REJECT_MESSAGE = (
     "This doesn't look like an ingredient list, so we haven't scored it. "
     "Make sure the photo is of the ingredients panel (usually after “Ingredients:”), "

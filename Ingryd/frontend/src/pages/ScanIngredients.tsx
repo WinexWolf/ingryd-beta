@@ -215,7 +215,7 @@ export function ScanIngredients() {
         <h1 className="font-display text-4xl sm:text-5xl" style={{ color: 'var(--fg)' }}>Scan Ingredients</h1>
         <Link to="/scan" className="text-xs underline inline-block mt-3" style={{ color: 'var(--primary)' }}>← Back to barcode scan</Link>
         <p className="text-sm mt-4 leading-relaxed" style={{ color: 'var(--muted)' }}>
-          Photograph the ingredients panel directly — works for products without a scannable barcode.
+          Photograph the ingredients panel directly — works for products without a scannable barcode. Use the back or side of the pack, where it says “Ingredients”, not the front.
           Text extraction happens right on your device. You'll get a chance to fix any misreads before we analyze it.
         </p>
       </div>
