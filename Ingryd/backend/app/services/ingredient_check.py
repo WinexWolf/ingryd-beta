@@ -123,9 +123,10 @@ def has_ingredient_header(raw: str) -> bool:
 
 
 NO_LIST_MESSAGE = (
-    "We couldn't find an ingredient list in that photo. If this is the front of the product, turn it over "
-    "and photograph the back or side panel, the part after the word “Ingredients”. Otherwise retake the "
-    "photo sharper, brighter and flatter."
+    "We couldn't find an ingredient list in that photo. Many brands (The Ordinary, Medicube and others) "
+    "print only the key actives on the bottle. Check the outer box, since the full list is often only there, "
+    "or a small label on the back or bottom of the bottle. If the box is gone, search the product online and "
+    "paste the ingredient list into the box below."
 )
 
 REJECT_MESSAGE = (

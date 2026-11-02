@@ -106,7 +106,7 @@ def test_front_of_pack_gets_a_turn_it_over_message():
     assert not has_ingredient_header(FRONT_OF_PACK)
     r = client.post("/api/ingredients/analyze", json={"raw_text": FRONT_OF_PACK})
     assert r.status_code == 422
-    assert "front of the product" in r.json()["detail"] and "back or side panel" in r.json()["detail"]
+    assert "key actives" in r.json()["detail"] and "outer box" in r.json()["detail"] and "paste" in r.json()["detail"]
     assert "ingredient list" in r.json()["detail"].lower()   # the app keys on this to stay on the text screen
 
 
