@@ -56,10 +56,61 @@ def test_analyze_refuses_a_web_page_with_a_helpful_422(monkeypatch):
     monkeypatch.setattr(ingredients_route, "analyze_raw_ingredients", boom)
     r = client.post("/api/ingredients/analyze", json={"raw_text": WEB_PAGE})
     assert r.status_code == 422
-    assert "doesn't look like an ingredient list" in r.json()["detail"]
+    assert "ingredient list" in r.json()["detail"]
 
 
 def test_analyze_still_scores_a_real_list():
     r = client.post("/api/ingredients/analyze", json={"raw_text": REAL[0]})
     assert r.status_code == 200
     assert r.json()["score"]["total_ingredients"] >= 8
+
+
+# ── Real photos of a pack read more than the list ─────────────────────────────
+
+from app.services.ingredient_check import extract_ingredient_text, has_ingredient_header
+
+FRONT_OF_PACK = (
+    "The Ordinary,\nNiacinamide 10% + Zinc 1%\n\nHigh-Strength Vitamin and\nMineral Blemish Formula\n"
+    "Ultra-Vitaminée et Minérale\nles Imperfections 30ml"
+)
+BACK_OF_PACK = (
+    "Gently smooths skin. Helps provide antioxidant benefits.\nDirections: Wet skin with lukewarm water. Massage.\n"
+    "INGREDIENTS: AQUA/WATER/EAU, COCAMIDOPROPYL\nHYDROXYSULTAINE, GLYCERIN, SODIUM LAUROYL\nSARCOSINATE, NIACINAMIDE, "
+    "SALICYLIC ACID, PEG-150\nPENTAERYTHRITYL TETRASTEARATE.\nWarning: For external use only. Avoid contact with eyes.\nMade in USA"
+)
+
+
+def test_extract_takes_only_the_list_from_a_back_panel():
+    out = extract_ingredient_text(BACK_OF_PACK)
+    assert out.startswith("AQUA/WATER/EAU")
+    assert "Directions" not in out and "Warning" not in out and "Made in" not in out
+    assert "SODIUM LAUROYL SARCOSINATE" in out          # wrapped line joined
+
+
+def test_extract_leaves_text_without_a_header_alone():
+    assert extract_ingredient_text("Water, Glycerin, Niacinamide") == "Water, Glycerin, Niacinamide"
+
+
+def test_extract_handles_other_separators():
+    out = extract_ingredient_text("Ingredients: Water; Glycerin; Niacinamide; Panthenol")
+    assert out == "Water, Glycerin, Niacinamide, Panthenol"
+
+
+def test_back_panel_with_claims_and_warnings_scores():
+    r = client.post("/api/ingredients/analyze", json={"raw_text": BACK_OF_PACK})
+    assert r.status_code == 200, r.text
+    assert "Niacinamide" in r.json()["ingredients_parsed"]
+
+
+def test_front_of_pack_gets_a_turn_it_over_message():
+    assert not has_ingredient_header(FRONT_OF_PACK)
+    r = client.post("/api/ingredients/analyze", json={"raw_text": FRONT_OF_PACK})
+    assert r.status_code == 422
+    assert "front of the product" in r.json()["detail"] and "back or side panel" in r.json()["detail"]
+    assert "ingredient list" in r.json()["detail"].lower()   # the app keys on this to stay on the text screen
+
+
+def test_garbled_list_with_header_keeps_the_retake_message():
+    r = client.post("/api/ingredients/analyze", json={"raw_text": "Ingredients: asdf qwer zxcv, lorem ipsum dolor sit amet consectetur adipiscing"})
+    assert r.status_code == 422
+    assert "doesn't look like an ingredient list" in r.json()["detail"]
