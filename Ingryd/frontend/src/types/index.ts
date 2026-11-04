@@ -231,3 +231,6 @@ export const GRADE_CONFIG: Record<GradeKey, { label: string; color: string; bg: 
   poor:      { label: 'Poor',      color: 'grade-poor',      bg: '', ring: 'var(--g-poor-bd)' },
   avoid:     { label: 'Avoid',     color: 'grade-avoid',     bg: '', ring: 'var(--g-avoid-bd)' },
 }
+
+export interface RoutineOrderItem { name: string; brand?: string | null; category: string; note: string; step: number }
+export interface RoutineOrderResponse { am: RoutineOrderItem[]; pm: RoutineOrderItem[]; tips: string[] }

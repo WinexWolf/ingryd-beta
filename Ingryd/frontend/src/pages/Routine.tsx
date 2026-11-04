@@ -7,6 +7,7 @@ import { BottleIcon } from '../components/routine/BottleIcon'
 import { RoutineFitPanel } from '../components/routine/RoutineFitPanel'
 import type { RoutineProductInput, RoutineCheckResponse, ProductResult } from '../types'
 import { DailyCheckIn } from '../components/routine/DailyCheckIn'
+import { RoutineOrder } from '../components/routine/RoutineOrder'
 
 function ShelfCard({ product, index, onRemove }: { product: RoutineProductInput; index: number; onRemove: () => void }) {
   const color = index % 2 === 0 ? 'var(--primary)' : 'var(--secondary)'
@@ -298,6 +299,8 @@ export function Routine() {
           <Shelf products={pmProducts} onRemove={removeProduct} />
         </div>
       </div>
+
+      <RoutineOrder products={products} />
 
       <RoutineFitPanel products={products} onAdded={(item) => { setResult(null); setProducts((prev) => [...prev, item]) }} />
 

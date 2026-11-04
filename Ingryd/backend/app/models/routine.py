@@ -78,3 +78,21 @@ class RoutineFitResponse(BaseModel):
     covered: list[RoutineCovered]
     gaps: list[RoutineGap]
     missing_basics: list[str]
+
+
+class RoutineOrderRequest(BaseModel):
+    products: list[RoutineProduct]
+
+
+class RoutineOrderItem(BaseModel):
+    name: str
+    brand: Optional[str] = None
+    category: str
+    note: str = ""
+    step: int = 0
+
+
+class RoutineOrderResponse(BaseModel):
+    am: list[RoutineOrderItem]
+    pm: list[RoutineOrderItem]
+    tips: list[str] = []

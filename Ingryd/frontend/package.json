@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "1.2.2",
     "@supabase/supabase-js": "^2.112.3",
     "@vladmandic/face-api": "^1.7.15",
     "@zxing/browser": "^0.1.5",
