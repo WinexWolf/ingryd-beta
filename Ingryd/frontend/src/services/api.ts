@@ -4,6 +4,7 @@ import type {
   SkinProfile,
   RoutineProductInput,
   RoutineCheckResponse,
+  RoutineOrderResponse,
   ProductScore,
   RecommendResponse,
   AlternativesResponse,
@@ -172,4 +173,13 @@ export async function suggestProducts(q: string, signal?: AbortSignal): Promise<
   } catch {
     return []
   }
+}
+
+export async function fetchRoutineOrder(products: RoutineProductInput[]): Promise<RoutineOrderResponse> {
+  const res = await fetch(`${BASE}/routine/order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ products }),
+  })
+  return handle<RoutineOrderResponse>(res)
 }
