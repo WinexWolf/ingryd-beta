@@ -15,6 +15,7 @@ import { PicksForYou } from '../components/recommend/PicksForYou'
 import { checkPhoto, cropToFace, imageFromSrc, loadDetector, SKIPPED, type View } from '../services/photoCheck'
 import { UseWhatYouHave } from '../components/skin/UseWhatYouHave'
 import { UnseenAreas, unseenToConcerns, type Unseen } from '../components/skin/UnseenAreas'
+import { SideScan } from '../components/skin/SideScan'
 import { GuidedCapture } from '../components/skin/GuidedCapture'
 import { PhotoSlots, VIEWS, isBlocking, type Check } from '../components/skin/PhotoSlots'
 
@@ -366,6 +367,7 @@ export function SkinAnalysis() {
               <FocusAreas areas={areas} onShow={show} hasMask={hasMask} varies={profile.varies} />
               <ConcernGrid areas={areas} selected={selected} onSelect={show} hasMask={hasMask} />
               {!sample && <UnseenAreas value={unseen} onChange={setUnseen} />}
+              {!sample && import.meta.env.VITE_SIDE_SCAN === '1' && <SideScan />}
             </>
           ) : (
             <>
